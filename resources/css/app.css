@@ -1,15 +1,199 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/forms';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views';
+
+@theme {
+    --font-sans: Figtree, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-serif: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, Georgia, serif;
+}
 
 /* Alpine: hide x-cloak elements until Alpine boots. */
 [x-cloak] {
     display: none !important;
 }
 
-@layer base {
-    /* Money columns line up: digits get equal widths in every table. */
-    table {
-        font-variant-numeric: tabular-nums;
-    }
+/*
+ * Reader. Theme, font family and size are set on <html> by the inline
+ * script in items/show.blade.php (before first paint) and kept in step by
+ * the Alpine reader component, so they are per browser, not per account.
+ */
+.reader {
+    --reader-bg: #ffffff;
+    --reader-fg: #1e293b;
+    --reader-muted: #64748b;
+    --reader-rule: #e2e8f0;
+    --reader-link: #0f766e;
+    --reader-code-bg: #f1f5f9;
+    --reader-bar-bg: rgb(255 255 255 / 0.92);
+    --reader-size: 20px;
+    --reader-font: var(--font-serif);
+
+    background: var(--reader-bg);
+    color: var(--reader-fg);
+}
+
+.reader.theme-sepia {
+    --reader-bg: #f6efe0;
+    --reader-fg: #4a3b2a;
+    --reader-muted: #7b6852;
+    --reader-rule: #e4d8bf;
+    --reader-link: #8a4b14;
+    --reader-code-bg: #eee3cb;
+    --reader-bar-bg: rgb(246 239 224 / 0.92);
+}
+
+.reader.theme-dark {
+    --reader-bg: #121417;
+    --reader-fg: #d6d9de;
+    --reader-muted: #8b929c;
+    --reader-rule: #2a2f36;
+    --reader-link: #5eead4;
+    --reader-code-bg: #1e2228;
+    --reader-bar-bg: rgb(18 20 23 / 0.92);
+}
+
+.reader.font-family-sans {
+    --reader-font: var(--font-sans);
+}
+
+.reader-muted {
+    color: var(--reader-muted);
+}
+
+.reader-bar {
+    background: var(--reader-bar-bg);
+    border-color: var(--reader-rule);
+}
+
+.reader-panel {
+    background: var(--reader-bg);
+    border-color: var(--reader-rule);
+}
+
+.reader-title {
+    font-family: var(--reader-font);
+}
+
+.reader-content {
+    font-family: var(--reader-font);
+    font-size: var(--reader-size);
+    line-height: 1.7;
+    overflow-wrap: break-word;
+}
+
+.reader-content > * + * {
+    margin-top: 1.1em;
+}
+
+.reader-content h1,
+.reader-content h2,
+.reader-content h3,
+.reader-content h4,
+.reader-content h5,
+.reader-content h6 {
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 1.6em;
+}
+
+.reader-content h1 { font-size: 1.6em; }
+.reader-content h2 { font-size: 1.35em; }
+.reader-content h3 { font-size: 1.15em; }
+.reader-content h4,
+.reader-content h5,
+.reader-content h6 { font-size: 1em; }
+
+.reader-content a {
+    color: var(--reader-link);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.reader-content img {
+    display: block;
+    height: auto;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 0.25rem;
+}
+
+.reader-content figure {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.reader-content figcaption {
+    color: var(--reader-muted);
+    font-family: var(--font-sans);
+    font-size: 0.8em;
+    margin-top: 0.5em;
+    text-align: center;
+}
+
+.reader-content blockquote {
+    border-left: 3px solid var(--reader-rule);
+    color: var(--reader-muted);
+    font-style: italic;
+    padding-left: 1em;
+}
+
+.reader-content ul,
+.reader-content ol {
+    padding-left: 1.5em;
+}
+
+.reader-content ul { list-style: disc; }
+.reader-content ol { list-style: decimal; }
+
+.reader-content li + li {
+    margin-top: 0.35em;
+}
+
+.reader-content pre,
+.reader-content code,
+.reader-content kbd,
+.reader-content samp {
+    background: var(--reader-code-bg);
+    border-radius: 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+}
+
+.reader-content code {
+    padding: 0.1em 0.3em;
+}
+
+.reader-content pre {
+    line-height: 1.5;
+    overflow-x: auto;
+    padding: 1em;
+}
+
+.reader-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.reader-content hr {
+    border: 0;
+    border-top: 1px solid var(--reader-rule);
+}
+
+.reader-content table {
+    border-collapse: collapse;
+    display: block;
+    font-size: 0.85em;
+    overflow-x: auto;
+}
+
+.reader-content th,
+.reader-content td {
+    border: 1px solid var(--reader-rule);
+    padding: 0.4em 0.6em;
+    text-align: left;
 }
