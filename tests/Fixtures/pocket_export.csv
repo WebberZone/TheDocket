@@ -1,0 +1,8 @@
+title,url,time_added,cursor,tags,status
+"The Web We Lost",https://www.example.com/the-web-we-lost?utm_source=pocket_saves,1356998400,a1,web|history,archive
+"Slow Reading, Fast Living",https://blog.example.org/slow-reading,1704067200,a2,reading,unread
+https://news.example.net/untitled-link,https://news.example.net/untitled-link,1717200000,a3,,unread
+"Duplicate of the first (different tracking)",https://WWW.EXAMPLE.COM/the-web-we-lost?fbclid=xyz,1356998400,a4,essays,archive
+"Not a link",javascript:alert(1),1717200000,a5,,unread
+"Empty URL",,1717200000,a6,,unread
+"Tagged twice",https://example.co.uk/tags,1720000000,a7,Laravel|laravel|PHP,unread

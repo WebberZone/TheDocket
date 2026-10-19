@@ -2,56 +2,47 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ImportRequest;
+use App\Models\Item;
+use App\Services\PocketImporter;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
-use Symfony\Component\Process\Exception\ProcessFailedException;
-use Symfony\Component\Process\Process;
+use RuntimeException;
 
 /**
- * Import the legacy Accounts Tracker workbook through the web interface.
- *
- * Uploads the XLSX to a temporary private disk, runs the Python importer
- * in a sub-process, then reports rows inserted and skipped. Duplicate
- * detection lives in the Python script (occurred_on, counterparty,
- * amount_gbp_minor), so re-importing the same file is idempotent.
+ * Pocket import (and the page the export links live on).
  */
 class ImportController extends Controller
 {
     public function index(): View
     {
-        return view('import.index');
+        return view('import.index', [
+            'itemCount' => Item::query()->count(),
+            'maxKb' => (int) config('docket.import.max_kb'),
+        ]);
     }
 
-    public function store(ImportRequest $request): RedirectResponse
+    public function store(Request $request, PocketImporter $importer): RedirectResponse
     {
-        $file = $request->file('tracker');
-        $path = $file->storeAs('tmp', 'tracker-import-'.uniqid().'.xlsx', ['disk' => 'local']);
-        $fullPath = Storage::disk('local')->path($path);
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt', 'max:'.(int) config('docket.import.max_kb')],
+        ], [
+            'file.mimes' => 'Upload the .csv file from Pocket\'s export.',
+        ]);
 
-        $process = new Process(
-            [
-                config('docket.import.python_bin'),
-                config('docket.import.script'),
-                $fullPath,
-                '--db',
-                config('database.connections.sqlite.database'),
-            ]
-        );
+        $file = $request->file('file');
+
+        if (! $file instanceof UploadedFile) {
+            return back()->withErrors(['file' => 'Upload one CSV file.']);
+        }
 
         try {
-            $process->run();
-        } finally {
-            Storage::disk('local')->delete($path);
+            $result = $importer->import((string) $file->getRealPath());
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['file' => $e->getMessage()]);
         }
 
-        if (! $process->isSuccessful()) {
-            throw new ProcessFailedException($process);
-        }
-
-        $output = trim($process->getOutput());
-
-        return redirect()->route('import.index')->with('status', $output);
+        return redirect()->route('import.index')->with('status', $result->summary());
     }
 }
