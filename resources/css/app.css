@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Alpine: hide x-cloak elements until Alpine boots. */
+[x-cloak] {
+    display: none !important;
+}
+
+@layer base {
+    /* Money columns line up: digits get equal widths in every table. */
+    table {
+        font-variant-numeric: tabular-nums;
+    }
+}

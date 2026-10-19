@@ -1,0 +1,10 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "new_with_parentheses": true
+    },
+    "exclude": [
+        "bootstrap/cache",
+        "storage"
+    ]
+}

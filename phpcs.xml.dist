@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<ruleset name="Docket">
+    <description>PHPCS rules for the Docket Laravel project, aligned with the Laravel Pint preset.</description>
+
+    <!-- Use PSR-12 as the base; Laravel Pint's preset is a PHP-CS-Fixer configuration derived from PSR-12. -->
+    <rule ref="PSR12">
+        <!--
+            Exclude sniffs where Laravel Pint's "laravel" preset disagrees with strict PSR-12,
+            so the IDE linter only flags what Pint would also flag. Pint is the source of truth
+            (composer lint); PHPCS here exists only for inline IDE diagnostics via wongjn.php-sniffer.
+        -->
+        <!-- Pint's concat_space rule wants NO spaces around "."; PSR-12 demands spaces. -->
+        <exclude name="PSR12.Operators.OperatorSpacing"/>
+        <!-- Pint does not enforce a line length limit. -->
+        <exclude name="Generic.Files.LineLength.TooLong"/>
+        <!-- Pint does not require each multi-line function-call argument on its own line. -->
+        <exclude name="PSR2.Methods.FunctionCallSignature.MultipleArguments"/>
+        <!-- Pint does not require one trait per "use" statement. -->
+        <exclude name="PSR12.Traits.UseDeclaration.MultipleImport"/>
+        <!-- Pint's control-structure formatting differs from strict PSR-12. -->
+        <exclude name="PSR12.ControlStructures.ControlStructureSpacing"/>
+    </rule>
+
+    <!-- Pint does not enforce camelCase method names; Laravel/PHPUnit tests use snake_case. -->
+    <rule ref="PSR1.Methods.CamelCapsMethodName">
+        <exclude-pattern>*/tests/*</exclude-pattern>
+    </rule>
+
+    <!-- Paths to check. -->
+    <file>app</file>
+    <file>config</file>
+    <file>database</file>
+    <file>routes</file>
+    <file>tests</file>
+
+    <!-- Paths to ignore. -->
+    <exclude-pattern>bootstrap/cache/*</exclude-pattern>
+    <exclude-pattern>storage/*</exclude-pattern>
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>public/build/*</exclude-pattern>
+    <exclude-pattern>public/hot</exclude-pattern>
+    <exclude-pattern>*.blade.php</exclude-pattern>
+
+    <!-- PHP 8.3+. -->
+    <config name="php_version" value="80300"/>
+</ruleset>

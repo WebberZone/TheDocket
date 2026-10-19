@@ -1,0 +1,21 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/phpstan/phpstan-mockery/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database
+        - routes
+        - tests
+
+    # Level 5 adds return type checks, property type checks, and stricter
+    # dead-code and unreachable-code analysis on top of level 2.
+    level: 5
+
+    excludePaths:
+        - storage
+        - bootstrap/cache
+        - vendor
+        - public/build (?)
+        - public/hot (?)
