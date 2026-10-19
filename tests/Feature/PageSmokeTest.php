@@ -2,9 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\CashFlow;
-use App\Models\Expense;
-use App\Models\Income;
+use App\Models\Item;
+use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,35 +18,42 @@ class PageSmokeTest extends TestCase
     public function test_all_pages_render(): void
     {
         $user = User::factory()->create();
-        $expense = Expense::factory()->create();
-        $income = Income::factory()->create();
-        $cashFlow = CashFlow::factory()->create();
+        $tag = Tag::factory()->create(['name' => 'reading', 'slug' => 'reading']);
+
+        $fetched = Item::factory()->fetched()->favourite()->create();
+        $fetched->tags()->attach($tag);
+        $pending = Item::factory()->create();
+        $failed = Item::factory()->failed()->archived()->create();
 
         $pages = [
-            '/dashboard',
-            '/expenses',
-            '/expenses/create',
-            "/expenses/{$expense->id}",
-            "/expenses/{$expense->id}/edit",
-            '/income',
-            '/income/create',
-            "/income/{$income->id}",
-            "/income/{$income->id}/edit",
-            '/cashflows',
-            '/cashflows/create',
-            "/cashflows/{$cashFlow->id}",
-            "/cashflows/{$cashFlow->id}/edit",
-            '/reports',
-            '/balances',
-            '/ledger',
-            '/ledger?payment_method_id='.$expense->payment_method_id.'&currency=GBP',
-            '/capture',
-            '/profile',
+            '/',
+            '/?sort=oldest',
+            '/?sort=longest',
+            '/archive',
+            '/favourites',
+            '/search?q=the',
+            '/search?q=the&sort=newest',
+            '/search',
+            '/tags',
+            '/tags/reading',
+            "/items/{$fetched->id}",
+            "/items/{$pending->id}",
+            "/items/{$failed->id}",
+            '/import',
             '/settings',
+            '/tools',
+            '/profile',
         ];
 
         foreach ($pages as $page) {
             $this->actingAs($user)->get($page)->assertOk();
+        }
+    }
+
+    public function test_guests_are_sent_to_the_login_screen(): void
+    {
+        foreach (['/', '/archive', '/favourites', '/tags', '/import', '/settings', '/export/csv'] as $page) {
+            $this->get($page)->assertRedirect('/login');
         }
     }
 }
