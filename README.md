@@ -1,64 +1,135 @@
 # Docket
 
-A single-user cost/expense tracker you can self-host. Snap a receipt on
-the phone, have it logged in two taps; year-end is a CSV export mapped to
-your accountant's nominal codes. Built for Beyond Develop Ltd, open-sourced
-under the [MIT licence](LICENSE) for anyone who wants the same.
+A single-user read-later app you can self-host: a replacement for Pocket,
+which Mozilla shut down in July 2025. Save a link from the browser, the
+Android share sheet, an iOS Shortcut or the API; Docket fetches the
+article, strips it down to the text and images, and keeps its own copy so
+it survives link rot. Open source under the [MIT licence](LICENSE).
 
 Laravel 13 · PHP 8.3 · SQLite · Breeze (Blade) · Tailwind · Alpine.
 
 ## What it does
 
-Everything the old "Accounts Tracker" spreadsheet did, plus receipt capture:
+- **Saving links** four ways: a bookmarklet, the PWA share target
+  (Android "Share → Docket"), `POST /api/items` with a personal API token
+  (for an iOS Shortcut, extensions, scripts), or pasting a URL into the
+  app.
+- **Extraction**: a queued job fetches the page and runs it through
+  [readability.php](https://github.com/fivefilters/readability.php). It
+  stores the title, author, site name, excerpt, lead image, clean HTML,
+  plain text, word count, reading time, language and published date.
+  Inline images are downloaded to private storage and the article's `src`
+  attributes are rewritten to point at them. The HTML is sanitised against
+  an allow-list before it is stored. Failures are recorded on the item
+  with a readable reason, and you can retry.
+- **Organising**: the unread list is the home page; then archive,
+  favourites, tags (many-to-many, case-insensitive) and delete. Lists sort
+  by newest, oldest or longest, and every list has bulk actions.
+- **Search**: SQLite FTS5 over title, site name and article text, ranked
+  with title hits first. Triggers keep the index in step with every write.
+- **Reader**: serif or sans, adjustable size, light, sepia or dark;
+  remembered per browser. Your scroll position is saved as you read and
+  restored when you come back, on any device.
+- **Pocket import**: upload Pocket's export CSV, or use
+  `php artisan docket:import-pocket`. Dates, tags and unread/archive status
+  are kept; extraction is queued at a gentle rate. Re-running it is safe.
+- **Export**: CSV in Pocket's shape, and a full JSON export including the
+  article text and HTML.
 
-- **Three ledgers** sharing one shape (single-table inheritance on
-  `transactions`): **Expenses**, **Income** and **Cash flows** (share
-  capital / director loans). CRUD, filters, GBP totals and CSV export per
-  ledger. Amounts are net + VAT; for non-GBP entries give either an FX rate
-  or the actual GBP charged from the statement — the other is derived.
-- **Capture** (`/capture`): tap one takes the photo — a draft expense is
-  created and the image goes through a queued OCR job (Google Vision, or
-  local tesseract as the free fallback); tap two confirms the pre-filled
-  form. Installs to the phone as a PWA (`start_url` is the capture screen).
-- **Reports** (`/reports`): the Summary sheet — per-year Income / Expenses /
-  Profit / Cash flows, expense matrices by report group (accountant view),
-  by category and by payment method, with a personal-cards (to reimburse)
-  subtotal.
-- **Balances** (`/balances`): snapshot balances per account+currency,
-  pivoted accounts × dates — the Balances sheet.
-- **Ledger** (`/ledger`): any payment method + currency as a statement with
-  a running balance in the original currency — the PayPal USD/EUR sheets,
-  generalised.
-- **Categories** are two-level: entry-level name (e.g. "Website Expenses")
-  plus a `report_group` rollup ("Advertising and PR") and an `account_code`
-  for the accountant's chart.
-- **Receipts**: many per expense, stored on the private local disk
-  (`storage/app/private`), served only through an authed route.
-- **Money** is integer pence everywhere. Floats never touch storage.
-- **No soft deletes** — records are kept forever; deleting a transaction is
-  a deliberate, permanent act (the six-year record trail relies on simply
-  never deleting).
+Saving a link that is already there works the way Pocket did: no
+duplicate, the item moves back to the top of the unread list, and any new
+tags are added. Links are de-duplicated on a normalised form of the URL
+(lowercased host, no fragment, no `utm_*`/`fbclid`-style tracking
+parameters, sorted query).
 
-### Importing the old tracker
+## Saving links
 
-`php artisan docket:import-tracker <dir>` loads CSVs exported from the
-spreadsheet (income, expenses, cash flows, balances) and prints per-ledger
-totals to verify against the workbook. The export script lives in the
-session scratchpad (`export_csv.py`); it reads a *copy* of the xlsx and
-never touches the original. Already run against the tracker as of
-July 2026 — totals matched to the penny.
+### Bookmarklet
+
+**Settings → Bookmarklet**: drag the button to your bookmarks bar. On any
+page, click it; a small window confirms the save and closes itself. If
+your session has expired it asks you to log in first, then saves.
+
+### Android: Share → Docket
+
+Open Docket in Chrome on the phone and choose **Install app** (or **Add to
+Home screen**). Docket then shows up in the share sheet of every app.
+Sharing works out where the link is: most apps put it in the shared text,
+some in the URL field. HTTPS is required for the install.
+
+### iOS Shortcut
+
+1. In Docket, **Settings → API tokens**: create a token (for example
+   "iPhone") and copy it. It is shown once.
+2. In the Shortcuts app, create a shortcut called **Save to Docket**. In
+   its details, turn on **Show in Share Sheet** and set it to receive
+   **URLs** (and Safari web pages).
+3. Add **Get Contents of URL**:
+   - URL: `https://your-domain/api/items`
+   - Method: **POST**
+   - Headers: `Authorization` = `Bearer <your token>`, and
+     `Accept` = `application/json`
+   - Request Body: **JSON**, with one field: `url` (Text) = **Shortcut
+     Input**. Add `tags` (Text, comma-separated) if you want a fixed tag.
+4. Optionally add **Show Notification** with "Saved to Docket".
+
+Share any page or link to **Save to Docket**. If the shortcut reports a
+401, the token is wrong or has been revoked.
+
+### API
+
+```sh
+curl -X POST https://your-domain/api/items \
+    -H "Authorization: Bearer $DOCKET_TOKEN" \
+    -H "Accept: application/json" \
+    -H "Content-Type: application/json" \
+    -d '{"url": "https://example.com/article", "title": "Optional", "tags": ["later", "long reads"]}'
+```
+
+`tags` may be an array or a comma-separated string. The response is `201`
+for a new item and `200` when the link was already saved, with the item
+(including `web_url`, the reader link) in `data`. Invalid input returns
+`422` with Laravel's usual `errors` object. The API is limited to 60
+requests a minute. Tokens are Laravel Sanctum personal access tokens; only
+a hash is stored, and revoking one on the Settings page stops it at once.
+
+## Coming from Pocket
+
+Pocket's export is a ZIP with one or more CSV files (`part_000000.csv`,
+…) with the columns `title, url, time_added, tags, status`. Either upload
+each CSV on **Import & export**, or:
+
+```sh
+php artisan docket:import-pocket /path/to/part_000000.csv
+```
+
+Each link keeps its saved date, its tags (Pocket separates them with `|`)
+and its status (`archive` becomes archived). Links Pocket never parsed
+come through with the URL as the title; Docket leaves those blank for the
+extractor to fill in. Rows that are not http(s) links are skipped and
+counted.
+
+The import is idempotent. Links already in Docket, from an earlier import
+or saved since, are matched on their normalised URL and only gain any tags
+they were missing; nothing is duplicated, re-dated or fetched again.
+
+Extraction for new items is queued with a gap between each job (10 seconds
+by default; **Settings → Import spacing**), so a few thousand links take a
+few hours to fill in rather than hammering every site at once. Keep the
+queue worker running until the queue drains. Anything that fails (dead
+links are common in an old Pocket library) is marked on the item with the
+reason. **Tools → Fetch failed and pending items** (or `php artisan
+docket:refetch`) tries them all again.
 
 ## Installation
 
-Requirements: PHP 8.3+ (with `pdo_sqlite`, `mbstring`, `fileinfo`),
-Composer, Node 20+. Optional: `tesseract` or Google Vision credentials for
-receipt OCR, Python 3 for the Accounts Tracker XLSX export.
+Requirements: PHP 8.3+ with `pdo_sqlite` (SQLite built with FTS5, which is
+standard on current Debian, Ubuntu and Homebrew), `mbstring`, `fileinfo`,
+`dom` and `xml`; `intl` and `zip` recommended. Composer and Node 20+.
 
-Both installers do the same work — create `.env`, generate the app key,
+Both installers do the same work: create `.env`, generate the app key,
 create the SQLite database, run the migrations and create the single owner
-account (there is no registration flow) — and both offer to seed a starter
-taxonomy of categories, business units and payment methods you can rename
-in Settings, or leave you to start empty.
+account. There is no registration flow.
 
 ### Web installer (recommended on a server)
 
@@ -66,15 +137,14 @@ in Settings, or leave you to start empty.
 git clone https://github.com/WebberZone/TheDocket.git docket
 cd docket
 composer install --no-dev
-npm install && npm run build
+npm ci && npm run build
 ```
 
-Point your web server at `public/`, then open **`https://your-domain/install`**
-in a browser. The wizard checks the server requirements (PHP version,
-extensions, writable directories), then asks for your site URL, name, email
-and password, and installs. It only exists while Docket has no user account —
-as soon as your login is created, `/install` permanently redirects to the
-login screen.
+Point your web server at `public/`, then open
+**`https://your-domain/install`**. The wizard checks the server
+requirements, then asks for the site URL, your name, email and password,
+and installs. It only exists while Docket has no user account: once your
+login is created, `/install` permanently redirects to the login screen.
 
 ### Console installer
 
@@ -85,7 +155,7 @@ composer setup      # deps + frontend build + guided php artisan docket:install
 ```
 
 The console installer is safe to re-run (`--force`) and never deletes data.
-For scripted/non-interactive installs pass the answers as flags:
+For scripted installs pass the answers as flags:
 
 ```sh
 php artisan docket:install --url=https://docket.example.com \
@@ -96,55 +166,49 @@ php artisan docket:install --url=https://docket.example.com \
 Then, for local use:
 
 ```sh
-php artisan serve        # or use Herd/Valet
-php artisan queue:work   # needed for receipt OCR jobs
+php artisan serve
+php artisan queue:work   # fetches and extracts saved pages
 ```
 
-For receipt OCR set `GOOGLE_VISION_CREDENTIALS` in `.env`, or just install
-`tesseract` for the free local fallback; with neither, uploads simply skip
-extraction.
+Development server (app + queue + logs + Vite): `composer dev`.
 
-Tests: `php artisan test`. Dev server (app + queue + logs + Vite):
-`composer dev`.
+## Deployment (any small VPS)
 
-## Deployment (any small VPS; mine is OCI Always Free, Ubuntu)
-
-1. Nginx + PHP 8.3-FPM, standard Laravel vhost with root at `public/`.
-   Let's Encrypt via `certbot --nginx -d your-domain`. HTTPS is required
-   for the PWA install + camera capture.
+1. Nginx + PHP 8.3-FPM, a standard Laravel vhost with the root at
+   `public/`. HTTPS (Let's Encrypt via `certbot --nginx -d your-domain`) is
+   required for the PWA install and share target.
 2. Visit `https://your-domain/install` (or run `php artisan docket:install`)
-   and give it the real production URL and your login details, then in
-   `.env` set `APP_ENV=production`,
-   `APP_DEBUG=false`, `GOOGLE_VISION_CREDENTIALS` (or install tesseract),
-   `BACKUP_*` (see below), and a real mailer (`MAIL_*`) so backup-failure
-   emails actually arrive.
+   with the real production URL. Then in `.env` set `APP_ENV=production`,
+   `APP_DEBUG=false`, `BACKUP_*` (below) and a real mailer (`MAIL_*`) so
+   backup-failure emails arrive.
 3. `php artisan config:cache && php artisan route:cache && php artisan view:cache`.
 4. Queue worker under systemd:
 
    ```ini
    [Service]
-   ExecStart=/usr/bin/php /var/www/docket/artisan queue:work --tries=3 --max-time=3600
+   ExecStart=/usr/bin/php /var/www/docket/artisan queue:work --tries=3 --timeout=300 --max-time=3600
    Restart=always
    User=www-data
    ```
 
-5. One cron entry drives the Laravel scheduler (backups, cleanup, monitor,
-   and the OCI keep-alive burn that stops idle reclaim):
+5. One cron entry drives the scheduler (backups, cleanup, monitor):
 
    ```
    * * * * * cd /var/www/docket && php artisan schedule:run >> /dev/null 2>&1
    ```
 
+Without a worker, set `QUEUE_CONNECTION=sync` and pages are fetched during
+the save request instead: slower saves, and a Pocket import will take as
+long as every fetch put together.
+
 ## Backups (spatie/laravel-backup)
 
-Daily at 02:00 server time: SQLite is dumped to a file, zipped with the
-receipts directory, verified, and shipped to the `offsite` disk — an
-S3-compatible bucket that **must live outside OCI** (Backblaze B2 or
-Cloudflare R2; the OCI account itself is the risk being insured against).
-Retention: 14 daily / 8 weekly / 24 monthly / 7 yearly. `backup:monitor`
-emails `BACKUP_NOTIFY_EMAIL` if the newest backup is older than a day.
-
-Fill in `.env`:
+Daily at 02:00 server time: the SQLite database is dumped, zipped with
+`storage/app/private` (the saved article images), verified and shipped to
+the `offsite` disk, an S3-compatible bucket with a different provider from
+the server (Backblaze B2 or Cloudflare R2). `backup:monitor` emails
+`BACKUP_NOTIFY_EMAIL` (or the owner's address) if the newest backup is
+more than a day old.
 
 ```
 BACKUP_ACCESS_KEY_ID=...
@@ -154,21 +218,63 @@ BACKUP_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 BACKUP_REGION=auto
 ```
 
-### Test a restore now, not in year three
+Test a restore early:
 
 ```sh
-php artisan backup:run                  # take one
+php artisan backup:run
 # download the newest zip from the bucket, then:
 unzip Docket/….zip -d /tmp/restore
 mv /tmp/restore/db-dumps/database.sqlite database/database.sqlite
 rsync -a /tmp/restore/…/storage/app/private/ storage/app/private/
-php artisan migrate:status              # sanity-check it boots against the restored DB
+php artisan migrate:status
 ```
 
-Open the app, confirm a known expense and its receipt image are present.
+Open a saved article and check its images load.
 
-## Out of scope, deliberately
+## Security notes
 
-Invoicing, bank feeds, double-entry, VAT/MTD, HMRC APIs. Company is not
-VAT-registered and outside MTD; this is record-keeping that feeds the CT600,
-nothing more.
+Every saved link is someone else's input, so fetching is treated as
+hostile:
+
+- **SSRF**: Docket resolves each hostname itself and refuses to connect if
+  any address is loopback, private, link-local (including cloud metadata
+  at `169.254.169.254`), carrier-grade NAT, multicast or reserved,
+  including IPv6 forms that embed one. The connection is then pinned to
+  the address that was checked, so a second DNS answer cannot swap one in.
+  Redirects are followed by hand and every hop is checked. Responses are
+  capped (5 MB pages, 5 MB images by default), with connect and total
+  timeouts and at most five redirects. Inline images go through the same
+  client. If the server sends outbound traffic through an HTTP proxy, the
+  proxy does its own DNS lookup, so the pinning cannot apply.
+- **Stored HTML** is sanitised with an allow-list
+  (symfony/html-sanitizer): no scripts, styles, frames, forms, embeds,
+  inline SVG, event handlers or `javascript:` links. Downloaded images are
+  checked by content, not by the server's `Content-Type`, and only raster
+  formats are stored; SVG stays remote. Images are served only to the
+  logged-in owner, with `nosniff`.
+- The bookmarklet and share target are `GET` requests, because that is
+  how they arrive. A third-party page could link you to `/save?url=…`; the
+  worst that does is add a link to your own list.
+
+## Development
+
+```sh
+composer test       # php artisan test
+composer lint       # Pint
+composer stan       # PHPStan (Larastan)
+```
+
+The feature tests never touch the network: `Http::preventStrayRequests()`
+is on, and DNS goes through a fake resolver (`tests/Support`). The Pocket
+importer test uses `tests/Fixtures/pocket_export.csv`; the extraction tests
+use `tests/Fixtures/article.html`.
+
+Config lives in `config/docket.php` (env vars use the `DOCKET_` prefix);
+the knobs on the Settings page override it from the database.
+
+## Not in version 1
+
+Highlights and notes, a wallabag-compatible API, saving by email, RSS
+feeds, and multiple users. The schema leaves room for them: notes and
+highlights hang off `items.id`, and multi-user means adding `user_id` and
+widening the unique key to `(user_id, normalized_url)`.
