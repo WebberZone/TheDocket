@@ -67,10 +67,6 @@ class ImageLocaliser
         $stored = [];
 
         foreach (iterator_to_array($root->getElementsByTagName('img')) as $img) {
-            if (! $img instanceof DOMElement) {
-                continue;
-            }
-
             $src = $img->getAttribute('src');
 
             if (! preg_match('#^https?://#i', $src)) {

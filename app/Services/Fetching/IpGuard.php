@@ -68,6 +68,9 @@ class IpGuard
             return false;
         }
 
+        // PHPStan doesn't model FILTER_FLAG_GLOBAL_RANGE and assumes any
+        // valid IP passes; it doesn't (e.g. 192.0.0.0/24 sub-ranges).
+        // @phpstan-ignore notIdentical.alwaysTrue
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) !== false;
     }
 

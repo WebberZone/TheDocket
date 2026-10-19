@@ -227,7 +227,7 @@ class ArticleExtractor
 
         $tag = strtolower($match[1]);
 
-        if (isset($match[2]) && $match[2] !== '') {
+        if (isset($match[2])) {
             $tag .= '-'.(strlen($match[2]) === 2 ? strtoupper($match[2]) : $match[2]);
         }
 
