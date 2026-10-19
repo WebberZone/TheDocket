@@ -19,7 +19,5 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make(config('docket.user.password')),
             ]
         );
-
-        $this->call(LookupSeeder::class);
     }
 }

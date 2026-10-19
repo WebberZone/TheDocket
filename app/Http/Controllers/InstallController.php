@@ -96,10 +96,6 @@ class InstallController extends Controller
             }
 
             $this->installer->createOwner($data['name'], $data['email'], $data['password']);
-
-            if ($request->boolean('seed_lookups')) {
-                $this->installer->seedLookups();
-            }
         } catch (Throwable $e) {
             report($e);
 

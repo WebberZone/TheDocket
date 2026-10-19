@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Models\User;
-use Database\Seeders\LookupSeeder;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use PDO;
 use Throwable;
 
 /**
@@ -56,7 +56,7 @@ class Installer
             ],
         ];
 
-        foreach (['pdo_sqlite', 'mbstring', 'fileinfo'] as $extension) {
+        foreach (['pdo_sqlite', 'mbstring', 'fileinfo', 'dom', 'xml'] as $extension) {
             $checks[] = [
                 'label' => "PHP extension: {$extension}",
                 'ok' => extension_loaded($extension),
@@ -64,6 +64,13 @@ class Installer
                 'hint' => "Install/enable the {$extension} PHP extension.",
             ];
         }
+
+        $checks[] = [
+            'label' => 'SQLite with full-text search (FTS5)',
+            'ok' => $this->hasFts5(),
+            'blocking' => true,
+            'hint' => 'Search needs an SQLite build with FTS5 (standard on current Debian, Ubuntu and Homebrew PHP).',
+        ];
 
         $writable = [
             '.env file location' => $envWritable,
@@ -86,6 +93,13 @@ class Installer
             'ok' => file_exists(public_path('build/manifest.json')),
             'blocking' => false,
             'hint' => 'Run: npm install && npm run build',
+        ];
+
+        $checks[] = [
+            'label' => 'PHP extension: intl (used to normalise international domain names)',
+            'ok' => extension_loaded('intl'),
+            'blocking' => false,
+            'hint' => 'Install the intl PHP extension; without it, non-ASCII domains are compared as typed.',
         ];
 
         $checks[] = [
@@ -226,12 +240,24 @@ class Installer
         ]);
     }
 
-    public function seedLookups(): bool
+    /**
+     * Whether this PHP's SQLite library was compiled with FTS5, which the
+     * items_fts search index needs.
+     */
+    protected function hasFts5(): bool
     {
-        return Artisan::call('db:seed', [
-            '--class' => LookupSeeder::class,
-            '--force' => true,
-        ]) === 0;
+        if (! extension_loaded('pdo_sqlite')) {
+            return false;
+        }
+
+        try {
+            $pdo = new PDO('sqlite::memory:');
+            $pdo->exec('CREATE VIRTUAL TABLE fts5_probe USING fts5(body)');
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

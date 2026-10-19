@@ -49,22 +49,6 @@
         <label for="password_confirmation">Confirm password</label>
         <input type="password" id="password_confirmation" name="password_confirmation" required autocomplete="new-password">
 
-        @php
-            // Fresh form: tick by default. Re-rendered after a validation
-            // error: respect whatever the user submitted (an unticked box
-            // posts nothing, so its absence means unticked).
-            $seedLookups = array_key_exists('name', $input) ? ! empty($input['seed_lookups']) : true;
-        @endphp
-        <div class="checkbox-row">
-            <input type="checkbox" id="seed_lookups" name="seed_lookups" value="1" @checked($seedLookups)>
-            <span>
-                <label for="seed_lookups" style="display:inline; margin:0;">Seed starter categories</label><br>
-                A working example taxonomy (categories, business units and
-                payment methods) you can rename or replace in Settings.
-                Untick to start completely empty.
-            </span>
-        </div>
-
         <div class="actions">
             <button type="submit" class="button">Install Docket</button>
         </div>

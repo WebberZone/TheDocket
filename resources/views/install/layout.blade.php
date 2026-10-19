@@ -82,7 +82,7 @@
     <main>
         <div class="brand">
             <h1>Docket</h1>
-            <p>Self-hosted expense &amp; receipt tracking</p>
+            <p>Self-hosted read-later</p>
         </div>
         <div class="card">
             @yield('content')

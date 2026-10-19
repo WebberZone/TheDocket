@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -58,6 +57,7 @@ class WebInstallerTest extends TestCase
             ->assertOk()
             ->assertSee('Welcome to the Docket installer')
             ->assertSee('PHP 8.3 or newer')
+            ->assertSee('SQLite with full-text search (FTS5)')
             ->assertSee('Continue');
     }
 
@@ -66,12 +66,12 @@ class WebInstallerTest extends TestCase
         $this->get('/install/setup')
             ->assertOk()
             ->assertSee('Set up Docket')
-            ->assertSee('Seed starter categories');
+            ->assertDontSee('Seed starter categories');
     }
 
-    public function test_installs_and_seeds_lookups(): void
+    public function test_installs_and_creates_the_owner(): void
     {
-        $response = $this->post('/install/setup', $this->validPayload() + ['seed_lookups' => '1']);
+        $response = $this->post('/install/setup', $this->validPayload());
 
         $response->assertOk()->assertSee('Docket is installed');
 
@@ -79,7 +79,7 @@ class WebInstallerTest extends TestCase
         $this->assertSame('Jane Doe', $user->name);
         $this->assertTrue(Hash::check('super-secret-99', $user->password));
 
-        $this->assertGreaterThan(0, Category::query()->count());
+        $this->assertSame(1, User::query()->count());
 
         $env = (string) file_get_contents($this->envDir.'/.env');
         $this->assertStringContainsString('APP_URL=https://docket.example.com', $env);
@@ -87,17 +87,6 @@ class WebInstallerTest extends TestCase
         $this->assertStringContainsString('DOCKET_USER_EMAIL=jane@example.com', $env);
         $this->assertMatchesRegularExpression('/^APP_KEY="?base64:/m', $env);
         $this->assertStringNotContainsString('super-secret-99', $env);
-    }
-
-    public function test_installs_without_lookups_when_unticked(): void
-    {
-        // An unticked checkbox simply isn't posted.
-        $this->post('/install/setup', $this->validPayload())
-            ->assertOk()
-            ->assertSee('Docket is installed');
-
-        $this->assertSame(0, Category::query()->count());
-        $this->assertSame(1, User::query()->count());
     }
 
     public function test_invalid_email_re_renders_form_with_error(): void

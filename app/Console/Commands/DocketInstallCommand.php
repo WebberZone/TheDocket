@@ -9,7 +9,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\text;
 
@@ -18,7 +17,6 @@ use function Laravel\Prompts\text;
     {--name= : Owner account name}
     {--email= : Owner account email}
     {--password= : Owner account password (auto-generated when omitted non-interactively)}
-    {--skip-lookups : Start with empty categories, business units and payment methods}
     {--force : Run even when an account already exists}')]
 #[Description('Install Docket: create .env, generate the app key, migrate the database and create the owner account')]
 class DocketInstallCommand extends Command
@@ -125,13 +123,6 @@ class DocketInstallCommand extends Command
             );
         }
 
-        if (! $this->option('skip-lookups') && $this->wantsLookups()) {
-            $this->components->task(
-                'seeding starter categories, business units and payment methods',
-                fn (): bool => $installer->seedLookups()
-            );
-        }
-
         $this->printNextSteps($url, $email);
 
         return SymfonyCommand::SUCCESS;
@@ -151,19 +142,6 @@ class DocketInstallCommand extends Command
             validate: fn (string $value): ?string => strlen($value) >= 8
                 ? null
                 : 'The password must be at least 8 characters.',
-        );
-    }
-
-    protected function wantsLookups(): bool
-    {
-        if (! $this->input->isInteractive()) {
-            return true;
-        }
-
-        return confirm(
-            label: 'Seed starter categories, business units and payment methods?',
-            default: true,
-            hint: 'A working example taxonomy you can rename or replace in Settings.',
         );
     }
 
@@ -198,11 +176,10 @@ class DocketInstallCommand extends Command
         }
 
         $steps[] = 'Serve the app: point your web server at public/ (or run: php artisan serve)';
-        $steps[] = 'Run a queue worker for receipt OCR: php artisan queue:work (use systemd/supervisor in production)';
+        $steps[] = 'Run a queue worker to fetch saved pages: php artisan queue:work (use systemd/supervisor in production)';
         $steps[] = 'Add the scheduler cron: * * * * * cd /path/to/docket && php artisan schedule:run >> /dev/null 2>&1';
-        $steps[] = 'Optional OCR: set GOOGLE_VISION_CREDENTIALS in .env, or install tesseract for the free local fallback';
         $steps[] = 'Optional off-site backups: fill in the BACKUP_* keys in .env (S3-compatible bucket)';
-        $steps[] = 'Optional XLSX export: python3 -m venv python/venv && python/venv/bin/pip install -r python/requirements.txt';
+        $steps[] = 'Coming from Pocket? Import your export: php artisan docket:import-pocket /path/to/part_000000.csv';
 
         $this->components->bulletList($steps);
         $this->newLine();

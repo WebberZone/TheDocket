@@ -33,7 +33,7 @@
             {{ $slot }}
         </div>
 
-        <p class="mt-6 text-xs text-slate-400">Docket — cost &amp; expense tracker</p>
+        <p class="mt-6 text-xs text-slate-400">Docket — save now, read later</p>
     </div>
 </body>
 

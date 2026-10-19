@@ -10,11 +10,10 @@ use Symfony\Component\HttpFoundation\Response;
  * Baseline browser-hardening headers on every web response. Laravel does
  * not set these itself and the app is internet-facing:
  *
- *  - nosniff stops a browser second-guessing the Content-Type on streamed
- *    receipt files and rendering one as something more dangerous.
+ *  - nosniff stops a browser second-guessing the Content-Type on stored
+ *    article images and rendering one as something more dangerous.
  *  - SAMEORIGIN blocks another site framing the app for clickjacking
- *    (receipts open in a new tab, never a cross-origin frame, so nothing
- *    legitimate is affected).
+ *    (nothing legitimate frames Docket; the bookmarklet opens a window).
  *  - Referrer-Policy keeps app URLs out of outbound request headers.
  */
 class SecurityHeaders

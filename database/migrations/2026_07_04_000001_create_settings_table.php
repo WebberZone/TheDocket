@@ -9,8 +9,8 @@ return new class() extends Migration
     public function up(): void
     {
         // DB-backed overrides for the editable knobs in config/docket.php.
-        // One row per dotted key (e.g. "receipts.max_kb"); value is JSON so
-        // arrays (currencies, ocr.backoff) and scalars share one column.
+        // One row per dotted key (e.g. "fetch.timeout"); value is JSON so
+        // arrays (fetch.backoff) and scalars share one column.
         // Read through App\Services\Settings, which falls back to the
         // config default when no row exists.
         Schema::create(

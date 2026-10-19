@@ -21,30 +21,21 @@
 <body class="h-full font-sans antialiased bg-slate-100 text-slate-900">
     @php
         $navigation = [
-            ['route' => 'dashboard', 'pattern' => 'dashboard', 'label' => 'Dashboard',
-                'icon' => 'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25'],
-            ['route' => 'expenses.index', 'pattern' => 'expenses.*', 'label' => 'Expenses',
-                'icon' => 'M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z'],
-            ['route' => 'income.index', 'pattern' => 'income.*', 'label' => 'Income',
-                'icon' => 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941'],
-            ['route' => 'cashflows.index', 'pattern' => 'cashflows.*', 'label' => 'Cash flows',
-                'icon' => 'M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5'],
-            ['route' => 'capture.create', 'pattern' => 'capture.*', 'label' => 'Capture',
-                'icon' => 'M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z'],
-            ['route' => 'reports.index', 'pattern' => 'reports.*', 'label' => 'Reports',
-                'icon' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z'],
-            ['route' => 'balances.index', 'pattern' => 'balances.*', 'label' => 'Balances',
-                'icon' => 'M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3'],
-            ['route' => 'ledger.index', 'pattern' => 'ledger.*', 'label' => 'Ledger',
+            ['route' => 'items.index', 'pattern' => ['items.index', 'items.show'], 'label' => 'Unread',
+                'count' => \App\Models\Item::query()->unread()->count(),
                 'icon' => 'M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25'],
-            ['route' => 'settings.edit', 'pattern' => 'settings.*', 'label' => 'Settings',
-                'icon' => 'M10.34 3.94c.09-.34.27-.64.51-.88l2.47-2.47a1.125 1.125 0 0 1 1.59 1.59l-2.47 2.47c-.24.24-.54.42-.88.51l-1.71.51a.375.375 0 0 1-.47-.47l.51-1.71Zm.53 3.99a.75.75 0 0 0-1.06 0l-4.5 4.5a.75.75 0 0 0 0 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l4.5-4.5a.75.75 0 0 0 0-1.06l-2.25-2.25ZM9.75 21h9a.75.75 0 0 0 .75-.75v-9a.75.75 0 0 0-.75-.75h-9a.75.75 0 0 0-.75.75v9c0 .414.336.75.75.75Z'],
-            ['route' => 'tools.index', 'pattern' => 'tools.*', 'label' => 'Tools',
+            ['route' => 'items.archive', 'pattern' => ['items.archive'], 'label' => 'Archive',
+                'icon' => 'm20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z'],
+            ['route' => 'items.favourites', 'pattern' => ['items.favourites'], 'label' => 'Favourites',
+                'icon' => 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z'],
+            ['route' => 'tags.index', 'pattern' => ['tags.*', 'items.tagged'], 'label' => 'Tags',
+                'icon' => 'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z M6 6h.008v.008H6V6Z'],
+            ['route' => 'import.index', 'pattern' => ['import.*'], 'label' => 'Import & export',
+                'icon' => 'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3'],
+            ['route' => 'settings.edit', 'pattern' => ['settings.*'], 'label' => 'Settings',
+                'icon' => 'M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75'],
+            ['route' => 'tools.index', 'pattern' => ['tools.*'], 'label' => 'Tools',
                 'icon' => 'M21.75 6.75a4.5 4.5 0 0 1-4.5 4.5H11.31l-4.72 4.72a.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 0 1 0-1.06l4.72-4.72V6.75a4.5 4.5 0 0 1 4.5-4.5h1.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 0 .75.75h1.5a.75.75 0 0 1 .75.75v1.5Z'],
-            ['route' => 'lookups.index', 'pattern' => 'lookups.*', 'label' => 'Lookups',
-                'icon' => 'M8.25 6.75h7.5M8.25 12h7.5M8.25 17.25h7.5M3.75 6.75h.008v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.008v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.008v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z'],
-            ['route' => 'import.index', 'pattern' => 'import.*', 'label' => 'Import',
-                'icon' => 'M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 4.5 4.5 0 0 1 8.774 0 4.5 4.5 0 0 1-1.41 8.775c-.184.097-.38.175-.585.233M9 15.75h6m-6 0v-1.5m6 0v-1.5'],
         ];
     @endphp
 
@@ -59,14 +50,17 @@
 
             <nav class="flex flex-1 flex-col gap-1 px-3 py-4">
                 @foreach ($navigation as $item)
-                    <x-sidebar-link :href="route($item['route'])" :active="request()->routeIs($item['pattern'])">
+                    <x-sidebar-link :href="route($item['route'])" :active="request()->routeIs(...$item['pattern'])">
                         <x-slot name="icon">
                             <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                                 stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}" />
                             </svg>
                         </x-slot>
-                        {{ $item['label'] }}
+                        <span class="flex-1">{{ $item['label'] }}</span>
+                        @if (! empty($item['count']))
+                            <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">{{ $item['count'] }}</span>
+                        @endif
                     </x-sidebar-link>
                 @endforeach
             </nav>
@@ -74,7 +68,7 @@
             <div class="border-t border-slate-800 p-3">
                 <div class="flex items-center gap-3 rounded-lg px-3 py-2">
                     <div
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white">
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-700 text-sm font-semibold text-white">
                         {{ mb_substr(Auth::user()->name, 0, 1) }}
                     </div>
                     <div class="min-w-0 flex-1">
@@ -93,7 +87,7 @@
 
         {{-- Mobile top bar --}}
         <header class="sticky top-0 z-40 flex h-14 items-center justify-between bg-slate-900 px-4 lg:hidden">
-            <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
+            <a href="{{ route('items.index') }}" class="flex items-center gap-2.5">
                 <x-application-logo class="h-7 w-7" />
                 <span class="text-base font-bold tracking-tight text-white">Docket</span>
             </a>
@@ -113,14 +107,17 @@
             class="fixed inset-x-0 top-14 z-30 border-b border-slate-800 bg-slate-900 px-3 pb-4 pt-2 lg:hidden">
             <nav class="flex flex-col gap-1">
                 @foreach ($navigation as $item)
-                    <x-sidebar-link :href="route($item['route'])" :active="request()->routeIs($item['pattern'])">
+                    <x-sidebar-link :href="route($item['route'])" :active="request()->routeIs(...$item['pattern'])">
                         <x-slot name="icon">
                             <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                                 stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}" />
                             </svg>
                         </x-slot>
-                        {{ $item['label'] }}
+                        <span class="flex-1">{{ $item['label'] }}</span>
+                        @if (! empty($item['count']))
+                            <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">{{ $item['count'] }}</span>
+                        @endif
                     </x-sidebar-link>
                 @endforeach
             </nav>

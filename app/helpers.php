@@ -6,8 +6,8 @@ use App\Services\Settings;
  * Resolve the Settings service, or read a single override.
  *
  *  settings()                  -> Settings instance
- *  settings('receipts.max_kb') -> DB override or config('docket.receipts.max_kb')
- *  settings('foo', 20480)      -> override, else 20480
+ *  settings('fetch.timeout')   -> DB override or config('docket.fetch.timeout')
+ *  settings('foo', 20)         -> override, else 20
  */
 function settings(?string $key = null, mixed $default = null): mixed
 {

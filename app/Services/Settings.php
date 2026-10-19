@@ -22,18 +22,6 @@ class Settings
     public const CACHE_KEY = 'docket.settings.all';
 
     /**
-     * Extensions the receipts.mimes setting may contain. Receipts are
-     * streamed back inline from an authed route, so active-content types
-     * (svg, html, xml...) must never become accepted upload types — an
-     * SVG "receipt" from a third party would run its scripts on this
-     * origin. Static image formats and PDF only.
-     */
-    public const SAFE_RECEIPT_EXTENSIONS = [
-        'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif',
-        'gif', 'tif', 'tiff', 'bmp', 'avif', 'pdf',
-    ];
-
-    /**
      * The editable fields, keyed by their dotted config path.
      *
      * Each entry:
@@ -41,65 +29,62 @@ class Settings
      *  - help:   explanatory line under the heading
      *  - type:   how the raw form input is cast before storage
      *      - string   -> trimmed string
-     *      - ext_list -> comma-joined lowercased tokens (receipt extensions;
-     *                    a stray space would silently break the mimes: rule)
      *      - int      -> integer
-     *      - list     -> array of uppercased, trimmed tokens (currency codes)
-     *      - list_int -> array of integers (OCR backoff seconds)
+     *      - list_int -> array of positive integers (retry backoff seconds)
      *  - rules:  Laravel validation rules for the form input
+     *
+     * @return array<string, array{label: string, help: string, type: string, rules: list<mixed>}>
      */
     public static function fields(): array
     {
         return [
-            'currencies' => [
-                'label' => 'Currencies',
-                'help' => 'Comma-separated 3-letter codes offered in the currency dropdowns. The first should be the base currency.',
-                'type' => 'list',
-                'rules' => ['required', 'string', 'max:255'],
-            ],
-            'receipts.mimes' => [
-                'label' => 'Allowed receipt file types',
-                'help' => 'Comma-separated extensions accepted for receipt uploads and capture. Allowed: '.implode(', ', self::SAFE_RECEIPT_EXTENSIONS).'.',
-                'type' => 'ext_list',
-                'rules' => [
-                    'required', 'string', 'max:255',
-                    static function (string $attribute, mixed $value, \Closure $fail): void {
-                        $extensions = array_filter(array_map(
-                            static fn ($v) => strtolower(trim((string) $v)),
-                            explode(',', (string) $value)
-                        ));
-
-                        foreach ($extensions as $extension) {
-                            if (! in_array($extension, self::SAFE_RECEIPT_EXTENSIONS, true)) {
-                                $fail("The file type \"{$extension}\" is not allowed for receipts. Allowed: ".implode(', ', self::SAFE_RECEIPT_EXTENSIONS).'.');
-                            }
-                        }
-                    },
-                ],
-            ],
-            'receipts.max_kb' => [
-                'label' => 'Max receipt upload (KB)',
-                'help' => 'Largest individual file accepted for a receipt, in kilobytes.',
+            'words_per_minute' => [
+                'label' => 'Reading speed (words per minute)',
+                'help' => 'Used to estimate reading time. Applies to articles fetched after the change.',
                 'type' => 'int',
-                'rules' => ['required', 'integer', 'min:1', 'max:102400'],
+                'rules' => ['required', 'integer', 'min:50', 'max:2000'],
             ],
-            'max_amount' => [
-                'label' => 'Max transaction amount',
-                'help' => 'Sanity cap on a single transaction line, in major units (e.g. pence/100). Not an accounting rule.',
+            'per_page' => [
+                'label' => 'Items per page',
+                'help' => 'How many items the lists show before paginating.',
                 'type' => 'int',
-                'rules' => ['required', 'integer', 'min:1'],
+                'rules' => ['required', 'integer', 'min:5', 'max:200'],
             ],
-            'ocr.tries' => [
-                'label' => 'OCR retry attempts',
-                'help' => 'How many times the queued Vision OCR job retries on transient failure.',
+            'fetch.timeout' => [
+                'label' => 'Fetch timeout (seconds)',
+                'help' => 'How long to wait for a page to download before giving up.',
+                'type' => 'int',
+                'rules' => ['required', 'integer', 'min:2', 'max:120'],
+            ],
+            'fetch.max_kb' => [
+                'label' => 'Largest page fetched (KB)',
+                'help' => 'Downloads larger than this are abandoned and the item is marked as failed.',
+                'type' => 'int',
+                'rules' => ['required', 'integer', 'min:64', 'max:51200'],
+            ],
+            'fetch.tries' => [
+                'label' => 'Fetch attempts',
+                'help' => 'How many times the queued fetch job tries a page before recording a failure.',
                 'type' => 'int',
                 'rules' => ['required', 'integer', 'min:1', 'max:10'],
             ],
-            'ocr.backoff' => [
-                'label' => 'OCR backoff (seconds)',
-                'help' => 'Comma-separated seconds to wait between each retry.',
+            'fetch.backoff' => [
+                'label' => 'Fetch backoff (seconds)',
+                'help' => 'Comma-separated seconds to wait between each attempt.',
                 'type' => 'list_int',
-                'rules' => ['required', 'string', 'max:255'],
+                'rules' => ['required', 'string', 'max:255', 'regex:/^\s*\d+(\s*,\s*\d+)*\s*$/'],
+            ],
+            'images.max_per_item' => [
+                'label' => 'Images saved per article',
+                'help' => 'Inline images downloaded so articles survive link rot. Set to 0 to keep every image remote.',
+                'type' => 'int',
+                'rules' => ['required', 'integer', 'min:0', 'max:500'],
+            ],
+            'import.spacing_seconds' => [
+                'label' => 'Import spacing (seconds)',
+                'help' => 'Gap between extraction jobs queued by a Pocket import, so a large import fetches gently.',
+                'type' => 'int',
+                'rules' => ['required', 'integer', 'min:0', 'max:3600'],
             ],
         ];
     }
@@ -107,8 +92,8 @@ class Settings
     /**
      * The HTML form field name for a settings key. PHP converts dots to
      * underscores in submitted form data, so a field named after the
-     * dotted config path ("receipts.mimes") would arrive mangled and the
-     * dotted validation rules would never see it — the form, rules and
+     * dotted config path ("fetch.timeout") would arrive mangled and the
+     * dotted validation rules would never see it. The form, rules and
      * controller all address the field by this underscore name instead.
      */
     public static function formKey(string $key): string
@@ -126,6 +111,8 @@ class Settings
 
     /**
      * The full merged map of editable settings (DB override over config).
+     *
+     * @return array<string, mixed>
      */
     public function all(): array
     {
@@ -180,22 +167,6 @@ class Settings
 
         return match ($type) {
             'int' => (int) $value,
-            'ext_list' => implode(',', array_values(
-                array_filter(
-                    array_map(
-                        static fn ($v) => strtolower(trim((string) $v)),
-                        explode(',', (string) $value)
-                    )
-                )
-            )),
-            'list' => array_values(
-                array_filter(
-                    array_map(
-                        static fn ($v) => strtoupper(trim((string) $v)),
-                        explode(',', (string) $value)
-                    )
-                )
-            ),
             'list_int' => array_values(
                 array_filter(
                     array_map(

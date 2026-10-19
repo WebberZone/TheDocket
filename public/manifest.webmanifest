@@ -1,11 +1,22 @@
 {
     "name": "Docket",
     "short_name": "Docket",
-    "description": "Snap a receipt, log the expense.",
-    "start_url": "/capture",
+    "description": "Save links now, read them later.",
+    "id": "/",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
-    "theme_color": "#4f46e5",
+    "theme_color": "#0f766e",
+    "share_target": {
+        "action": "/share",
+        "method": "GET",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url"
+        }
+    },
     "icons": [
         {
             "src": "/icons/icon.svg",

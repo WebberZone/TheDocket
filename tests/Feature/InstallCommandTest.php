@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -44,43 +44,27 @@ class InstallCommandTest extends TestCase
         return (string) file_get_contents($this->envDir.'/.env');
     }
 
-    public function test_installs_with_options_and_seeds_lookups(): void
+    public function test_installs_with_options(): void
     {
         $this->artisan('docket:install', [
-            '--url' => 'https://ledger.example.com',
+            '--url' => 'https://docket.example.com',
             '--name' => 'Jane Doe',
             '--email' => 'jane@example.com',
             '--password' => 'super-secret-99',
-        ])
-            ->expectsConfirmation('Seed starter categories, business units and payment methods?', 'yes')
-            ->assertSuccessful();
+        ])->assertSuccessful();
 
         $user = User::query()->where('email', 'jane@example.com')->firstOrFail();
         $this->assertSame('Jane Doe', $user->name);
         $this->assertTrue(Hash::check('super-secret-99', $user->password));
 
-        $this->assertGreaterThan(0, Category::query()->count());
+        $this->assertTrue(Schema::hasTable('items'));
 
         $env = $this->envContents();
-        $this->assertStringContainsString('APP_URL=https://ledger.example.com', $env);
+        $this->assertStringContainsString('APP_URL=https://docket.example.com', $env);
         $this->assertStringContainsString('DOCKET_USER_NAME="Jane Doe"', $env);
         $this->assertStringContainsString('DOCKET_USER_EMAIL=jane@example.com', $env);
         $this->assertMatchesRegularExpression('/^APP_KEY="?base64:/m', $env);
         $this->assertStringNotContainsString('super-secret-99', $env);
-    }
-
-    public function test_skip_lookups_leaves_taxonomy_empty(): void
-    {
-        $this->artisan('docket:install', [
-            '--url' => 'http://localhost',
-            '--name' => 'Jane Doe',
-            '--email' => 'jane@example.com',
-            '--password' => 'super-secret-99',
-            '--skip-lookups' => true,
-        ])->assertSuccessful();
-
-        $this->assertSame(0, Category::query()->count());
-        $this->assertSame(1, User::query()->where('email', 'jane@example.com')->count());
     }
 
     public function test_non_interactive_install_generates_a_password(): void
@@ -102,12 +86,10 @@ class InstallCommandTest extends TestCase
             ->expectsQuestion('Your name', 'Sam Smith')
             ->expectsQuestion('Your email (used to log in)', 'sam@example.com')
             ->expectsQuestion('Choose a login password', 'another-secret-1')
-            ->expectsConfirmation('Seed starter categories, business units and payment methods?', 'no')
             ->assertSuccessful();
 
         $user = User::query()->where('email', 'sam@example.com')->firstOrFail();
         $this->assertTrue(Hash::check('another-secret-1', $user->password));
-        $this->assertSame(0, Category::query()->count());
     }
 
     public function test_refuses_to_run_when_already_installed(): void
@@ -132,7 +114,6 @@ class InstallCommandTest extends TestCase
             '--name' => 'Jane Doe',
             '--email' => 'jane@example.com',
             '--password' => 'a-brand-new-password',
-            '--skip-lookups' => true,
             '--force' => true,
         ])->assertSuccessful();
 

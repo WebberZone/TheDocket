@@ -13,7 +13,7 @@ class SecurityHeadersTest extends TestCase
     public function test_hardening_headers_are_sent_on_every_web_response(): void
     {
         $this->actingAs(User::factory()->create())
-            ->get('/dashboard')
+            ->get('/')
             ->assertOk()
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('X-Frame-Options', 'SAMEORIGIN')
