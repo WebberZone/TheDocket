@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, analyse and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, xml, mbstring, intl, fileinfo, pdo_sqlite, sqlite3, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Show SQLite version and FTS5 support
+        run: php -r '$p = new PDO("sqlite::memory:"); echo $p->query("select sqlite_version()")->fetchColumn(), PHP_EOL; $p->exec("create virtual table t using fts5(a)"); echo "FTS5 available", PHP_EOL;'
+
+      - name: Composer install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: npm ci
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      # Lockfiles are committed, but if either is missing (or drifts from
+      # its manifest) the resolved copy is kept here so it can be committed.
+      - name: Upload lockfiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lockfiles
+          path: |
+            composer.lock
+            package-lock.json
+          if-no-files-found: warn
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+
+      - name: Pint
+        run: vendor/bin/pint --test
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+      - name: Tests
+        run: php artisan test
