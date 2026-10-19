@@ -29,7 +29,22 @@ class ItemController extends Controller
      * search results. ?sort= picks newest/oldest/longest; search results
      * default to relevance.
      */
-    public function index(Request $request, string $view = 'unread', ?Tag $tag = null): View
+    public function index(Request $request, string $view = 'unread'): View
+    {
+        return $this->list($request, $view);
+    }
+
+    /**
+     * One tag's items. A separate action because route defaults and bound
+     * parameters reach the controller positionally, so one signature can't
+     * serve both.
+     */
+    public function tagged(Request $request, Tag $tag): View
+    {
+        return $this->list($request, 'tag', $tag);
+    }
+
+    protected function list(Request $request, string $view, ?Tag $tag = null): View
     {
         $view = array_key_exists($view, self::VIEWS) ? $view : 'unread';
         $q = trim($request->string('q')->toString());

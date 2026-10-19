@@ -27,7 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // The API always answers in JSON; elsewhere, the reader's fetch()
+        // calls ask for it with an Accept header.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();

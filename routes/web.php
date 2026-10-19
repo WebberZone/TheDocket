@@ -17,13 +17,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(
     function () {
-        // The lists. All share ItemController@index; the route default
-        // picks the view, and ?sort= / ?q= refine it.
+        // The lists. The route default picks the view (the tag list has
+        // its own action), and ?sort= / ?q= refine it.
         Route::get('/', [ItemController::class, 'index'])->defaults('view', 'unread')->name('items.index');
         Route::get('archive', [ItemController::class, 'index'])->defaults('view', 'archive')->name('items.archive');
         Route::get('favourites', [ItemController::class, 'index'])->defaults('view', 'favourites')->name('items.favourites');
         Route::get('search', [ItemController::class, 'index'])->defaults('view', 'search')->name('items.search');
-        Route::get('tags/{tag}', [ItemController::class, 'index'])->defaults('view', 'tag')->name('items.tagged');
+        Route::get('tags/{tag}', [ItemController::class, 'tagged'])->name('items.tagged');
 
         Route::post('items', [ItemController::class, 'store'])->name('items.store');
         Route::post('items/bulk', BulkItemController::class)->name('items.bulk');
