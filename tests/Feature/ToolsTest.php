@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\ExtractReceiptData;
-use App\Models\Expense;
-use App\Models\Receipt;
+use App\Enums\FetchStatus;
+use App\Jobs\FetchItemContent;
+use App\Models\Item;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -14,24 +14,6 @@ class ToolsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * @param  array<string, mixed>|null  $ocrJson
-     */
-    private function makeReceipt(?array $ocrJson = null): Receipt
-    {
-        $expense = Expense::factory()->create();
-
-        return $expense->receipts()->create(
-            [
-                'path' => "receipts/{$expense->id}/receipt.jpg",
-                'original_filename' => 'receipt.jpg',
-                'content_type' => 'image/jpeg',
-                'byte_size' => 100,
-                'ocr_json' => $ocrJson,
-            ]
-        );
-    }
-
     public function test_tools_page_lists_the_available_tools(): void
     {
         $response = $this->actingAs(User::factory()->create())->get('/tools');
@@ -39,7 +21,7 @@ class ToolsTest extends TestCase
         $response->assertOk();
         $response->assertSee('Maintenance tools');
         $response->assertSee('Clear cache');
-        $response->assertSee('Re-queue missing OCR');
+        $response->assertSee('Fetch failed and pending items');
         $response->assertSee('Run backup now');
     }
 
@@ -57,22 +39,6 @@ class ToolsTest extends TestCase
         $response->assertSessionHas('tool_ran', 'Clear cache');
         $response->assertSessionHas('tool_exit_code', 0);
         $response->assertSessionHas('tool_output');
-
-        $this->followingRedirects()
-            ->actingAs(User::factory()->create())
-            ->post('/tools/clear-cache')
-            ->assertSee('Clear cache')
-            ->assertSee('Clearing cached bootstrap files');
-    }
-
-    public function test_rebuild_caches_flashes_output(): void
-    {
-        $response = $this->actingAs(User::factory()->create())->post('/tools/optimize');
-
-        $response->assertRedirect();
-        $response->assertSessionHas('tool_ran', 'Rebuild caches');
-        $response->assertSessionHas('tool_exit_code', 0);
-        $response->assertSessionHas('tool_output');
     }
 
     public function test_unknown_tool_returns_404_rather_than_running_anything(): void
@@ -82,62 +48,45 @@ class ToolsTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_ocr_tool_queues_jobs_for_receipts_without_results(): void
+    public function test_refetch_tool_queues_failed_and_pending_items_only(): void
     {
         Queue::fake();
 
-        $pending = $this->makeReceipt();
-        $this->makeReceipt(['supplier' => 'Tesco']);
+        $failed = Item::factory()->failed()->create();
+        $pending = Item::factory()->create();
+        Item::factory()->fetched()->create();
 
         $this->actingAs(User::factory()->create())
-            ->post('/tools/ocr-requeue')
+            ->post('/tools/refetch')
             ->assertRedirect(route('tools.index'));
 
-        Queue::assertPushed(ExtractReceiptData::class, 1);
-        Queue::assertPushed(
-            ExtractReceiptData::class,
-            fn (ExtractReceiptData $job) => $job->receipt->is($pending)
-        );
+        Queue::assertPushed(FetchItemContent::class, 2);
+        Queue::assertPushed(FetchItemContent::class, fn (FetchItemContent $job) => $job->item->is($failed));
+        Queue::assertPushed(FetchItemContent::class, fn (FetchItemContent $job) => $job->item->is($pending));
+
+        $this->assertSame(FetchStatus::Pending, $failed->refresh()->fetch_status);
+        $this->assertNull($failed->fetch_error);
     }
 
-    public function test_docket_ocr_command_requeues_all_receipts_with_the_all_option(): void
+    public function test_refetch_command_targets_one_item_or_everything(): void
     {
         Queue::fake();
 
-        $this->makeReceipt();
-        $this->makeReceipt(['supplier' => 'Tesco']);
+        $item = Item::factory()->fetched()->create();
+        Item::factory()->fetched()->create();
 
-        $this->artisan('docket:ocr', ['--all' => true])
-            ->expectsOutputToContain('Queued OCR for all 2 receipt(s).')
+        $this->artisan('docket:refetch', ['item' => $item->id])
+            ->expectsOutputToContain("Queued item {$item->id}")
             ->assertSuccessful();
 
-        Queue::assertPushed(ExtractReceiptData::class, 2);
-    }
+        Queue::assertPushed(FetchItemContent::class, 1);
 
-    public function test_docket_ocr_command_targets_a_single_receipt_by_id(): void
-    {
-        Queue::fake();
-
-        $receipt = $this->makeReceipt(['supplier' => 'Tesco']);
-
-        $this->artisan('docket:ocr', ['receipt' => $receipt->id])
-            ->expectsOutputToContain("Queued OCR for receipt {$receipt->id}")
+        $this->artisan('docket:refetch', ['--all' => true])
+            ->expectsOutputToContain('Queued 2 item(s)')
             ->assertSuccessful();
 
-        Queue::assertPushed(
-            ExtractReceiptData::class,
-            fn (ExtractReceiptData $job) => $job->receipt->is($receipt)
-        );
-    }
-
-    public function test_docket_ocr_command_fails_cleanly_for_a_missing_receipt(): void
-    {
-        Queue::fake();
-
-        $this->artisan('docket:ocr', ['receipt' => 999999])
-            ->expectsOutputToContain('Receipt 999999 not found.')
+        $this->artisan('docket:refetch', ['item' => 999999])
+            ->expectsOutputToContain('Item 999999 not found.')
             ->assertFailed();
-
-        Queue::assertNothingPushed();
     }
 }

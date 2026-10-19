@@ -51,7 +51,7 @@ class ToolsController extends Controller
             ],
             'failed-jobs' => [
                 'label' => 'List failed jobs',
-                'description' => 'Show jobs that exhausted their retries (queue:failed) — usually OCR jobs that hit an API error.',
+                'description' => 'Show jobs that crashed outright (queue:failed). Ordinary fetch failures are recorded on the item instead and do not appear here.',
                 'command' => 'queue:failed',
                 'params' => [],
             ],
@@ -61,21 +61,15 @@ class ToolsController extends Controller
                 'command' => 'queue:retry',
                 'params' => ['id' => ['all']],
             ],
-            'ocr-requeue' => [
-                'label' => 'Re-queue missing OCR',
-                'description' => 'Queue OCR extraction for receipts that never got a result (docket:ocr) — e.g. uploads made while the queue worker was down.',
-                'command' => 'docket:ocr',
-                'params' => [],
-            ],
-            'prune-captures' => [
-                'label' => 'Prune abandoned captures',
-                'description' => 'Delete pending capture photos older than 24 hours that never became an expense (docket:prune-captures). The scheduler does this nightly; this runs it now.',
-                'command' => 'docket:prune-captures',
+            'refetch' => [
+                'label' => 'Fetch failed and pending items',
+                'description' => 'Queue extraction again for every item that failed or is still waiting (docket:refetch) — e.g. links saved while the queue worker was down.',
+                'command' => 'docket:refetch',
                 'params' => [],
             ],
             'backup-run' => [
                 'label' => 'Run backup now',
-                'description' => 'Take an off-site backup immediately (backup:run) instead of waiting for the nightly scheduled one. Can take a minute — the receipts directory is zipped and uploaded.',
+                'description' => 'Take an off-site backup immediately (backup:run) instead of waiting for the nightly scheduled one. Can take a minute — the saved images are zipped and uploaded.',
                 'command' => 'backup:run',
                 'params' => [],
             ],
@@ -87,7 +81,7 @@ class ToolsController extends Controller
             ],
             'schedule-list' => [
                 'label' => 'List scheduled tasks',
-                'description' => 'Show everything on the scheduler and when it next runs (schedule:list) — nightly backup, capture pruning, etc.',
+                'description' => 'Show everything on the scheduler and when it next runs (schedule:list) — the nightly backup, cleanup and monitor.',
                 'command' => 'schedule:list',
                 'params' => [],
             ],

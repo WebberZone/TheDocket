@@ -35,7 +35,7 @@
                     </h2>
 
                     <p class="mt-1 text-sm text-slate-600">
-                        {{ __('Each button runs one artisan command on the server and shows its output above. Everything here is also available from the command line, e.g. php artisan docket:ocr.') }}
+                        {{ __('Each button runs one artisan command on the server and shows its output above. Everything here is also available from the command line, e.g. php artisan docket:refetch.') }}
                     </p>
                 </header>
 
