@@ -142,4 +142,32 @@ class InstallCommandTest extends TestCase
 
         $this->assertSame(0, User::query()->count());
     }
+
+    public function test_force_never_adds_a_second_account_under_another_email(): void
+    {
+        User::factory()->create(['email' => 'owner@example.com']);
+
+        $this->artisan('docket:install', [
+            '--url' => 'http://localhost',
+            '--name' => 'Someone Else',
+            '--email' => 'someone@example.com',
+            '--password' => 'another-password-1',
+            '--force' => true,
+        ])->assertFailed();
+
+        $this->assertSame(['owner@example.com'], User::query()->pluck('email')->all());
+        $this->assertStringNotContainsString('someone@example.com', $this->envContents());
+    }
+
+    public function test_installing_leaves_the_installed_marker(): void
+    {
+        $this->artisan('docket:install', [
+            '--url' => 'http://localhost',
+            '--email' => 'jane@example.com',
+            '--password' => 'super-secret-99',
+            '--no-interaction' => true,
+        ])->assertSuccessful();
+
+        $this->assertFileExists($this->installState.'/installed');
+    }
 }

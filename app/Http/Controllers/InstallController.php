@@ -36,17 +36,16 @@ class InstallController extends Controller
     /**
      * Step 2: the setup form (site URL + owner account).
      */
-    public function form(Request $request): View|RedirectResponse
+    public function form(Request $request): Response|RedirectResponse
     {
         if ($this->installer->blockingProblems() !== []) {
             return redirect()->route('install.requirements');
         }
 
-        return view('install.setup', [
-            'input' => ['url' => $request->getSchemeAndHttpHost()],
-            'errors' => new MessageBag(),
-            'installError' => null,
-        ]);
+        // Creates the code on first visit, so it is there to read.
+        $this->installer->setupCode();
+
+        return $this->setupView(['url' => $request->getSchemeAndHttpHost()], new MessageBag(), null);
     }
 
     /**
@@ -59,36 +58,43 @@ class InstallController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'setup_code' => ['required', 'string', 'max:64'],
             'url' => ['required', 'string', 'url', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        $validator->after(function ($validator) use ($request): void {
+            if (is_string($request->input('setup_code')) && ! $this->installer->checkSetupCode($request->input('setup_code'))) {
+                $validator->errors()->add('setup_code', 'That setup code is not right. Copy it from the file named below.');
+            }
+        });
+
         $safeInput = $request->except(['password', 'password_confirmation']);
 
         if ($validator->fails()) {
-            return response()->view('install.setup', [
-                'input' => $safeInput,
-                'errors' => $validator->errors(),
-                'installError' => null,
-            ], 422);
+            return $this->setupView($safeInput, $validator->errors(), null, 422);
         }
 
         $data = $validator->validated();
 
+        // One installation at a time, and the "already installed?" question
+        // asked again inside the lock: two requests that both got past the
+        // middleware can't both create an owner.
+        $lock = $this->installer->acquireLock();
+
+        if ($lock === null) {
+            return $this->setupView($safeInput, new MessageBag(), 'Another installation is running right now. Wait a moment, then reload.', 409);
+        }
+
         try {
+            if ($this->installer->isInstalled()) {
+                return redirect()->route('login');
+            }
+
             $this->installer->ensureEnvFile();
             $this->installer->ensureAppKey();
-
-            // The password is deliberately NOT written to .env: it is
-            // hashed straight into the database below.
-            $this->installer->writeEnvValues([
-                'APP_URL' => $data['url'],
-                'DOCKET_USER_NAME' => $data['name'],
-                'DOCKET_USER_EMAIL' => $data['email'],
-            ]);
-
             $this->installer->ensureSqliteDatabase();
 
             if (! $this->installer->migrate()) {
@@ -96,14 +102,24 @@ class InstallController extends Controller
             }
 
             $this->installer->createOwner($data['name'], $data['email'], $data['password']);
+
+            // Configuration changes only once the account exists, so a
+            // failed or refused install leaves .env as it was. The password
+            // is deliberately NOT written to .env: it is hashed into the
+            // database above.
+            $this->installer->writeEnvValues([
+                'APP_URL' => $data['url'],
+                'DOCKET_USER_NAME' => $data['name'],
+                'DOCKET_USER_EMAIL' => $data['email'],
+            ]);
+
+            $this->installer->markInstalled();
         } catch (Throwable $e) {
             report($e);
 
-            return response()->view('install.setup', [
-                'input' => $safeInput,
-                'errors' => new MessageBag(),
-                'installError' => $e->getMessage(),
-            ], 500);
+            return $this->setupView($safeInput, new MessageBag(), $e->getMessage(), 500);
+        } finally {
+            $this->installer->releaseLock($lock);
         }
 
         return view('install.complete', [
@@ -111,5 +127,18 @@ class InstallController extends Controller
             'email' => $data['email'],
             'assetsBuilt' => file_exists(public_path('build/manifest.json')),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    protected function setupView(array $input, MessageBag $errors, ?string $installError, int $status = 200): Response
+    {
+        return response()->view('install.setup', [
+            'input' => $input,
+            'errors' => $errors,
+            'installError' => $installError,
+            'codeLocation' => $this->installer->setupCodeLocation(),
+        ], $status);
     }
 }
