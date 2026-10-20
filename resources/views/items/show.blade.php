@@ -149,6 +149,14 @@
             </header>
 
             @if ($item->hasArticle())
+                @if ($item->refreshFailed())
+                    <p class="reader-panel reader-muted mb-8 rounded-lg border p-4 font-sans text-sm" role="status">
+                        {{ __('Could not refresh this article: :error You are reading the copy saved on :date.', [
+                            'error' => rtrim((string) $item->fetch_error, '.').'.',
+                            'date' => $item->fetched_at?->format('j F Y') ?? __('an earlier visit'),
+                        ]) }}
+                    </p>
+                @endif
                 <div class="reader-content">
                     {!! $item->content_html !!}
                 </div>

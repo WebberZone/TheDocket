@@ -76,7 +76,7 @@ class Settings
             ],
             'images.max_per_item' => [
                 'label' => 'Images saved per article',
-                'help' => 'Inline images downloaded so articles survive link rot. Set to 0 to keep every image remote.',
+                'help' => 'Images downloaded (or tried) per article, lead image included, so articles survive link rot. Set to 0 to keep every image remote.',
                 'type' => 'int',
                 'rules' => ['required', 'integer', 'min:0', 'max:500'],
             ],
