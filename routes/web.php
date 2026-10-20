@@ -23,7 +23,7 @@ Route::middleware('auth')->group(
         Route::get('archive', [ItemController::class, 'index'])->defaults('view', 'archive')->name('items.archive');
         Route::get('favourites', [ItemController::class, 'index'])->defaults('view', 'favourites')->name('items.favourites');
         Route::get('search', [ItemController::class, 'index'])->defaults('view', 'search')->name('items.search');
-        Route::get('tags/{tag}', [ItemController::class, 'tagged'])->name('items.tagged');
+        Route::get('tags/{tag}', [ItemController::class, 'tagged'])->whereNumber('tag')->name('items.tagged');
 
         Route::post('items', [ItemController::class, 'store'])->name('items.store');
         Route::post('items/bulk', BulkItemController::class)->name('items.bulk');
@@ -48,8 +48,8 @@ Route::middleware('auth')->group(
         Route::get('share', [SaveController::class, 'share'])->name('save.share');
 
         Route::get('tags', [TagController::class, 'index'])->name('tags.index');
-        Route::patch('tags/{tag}', [TagController::class, 'update'])->name('tags.update');
-        Route::delete('tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
+        Route::patch('tags/{tag}', [TagController::class, 'update'])->whereNumber('tag')->name('tags.update');
+        Route::delete('tags/{tag}', [TagController::class, 'destroy'])->whereNumber('tag')->name('tags.destroy');
 
         Route::get('import', [ImportController::class, 'index'])->name('import.index');
         Route::post('import', [ImportController::class, 'store'])->name('import.store');

@@ -109,7 +109,8 @@ class OrganisingTest extends TestCase
         $this->assertSame('Renamed', $item->title);
         $this->assertSame(['Laravel', 'php'], $item->tags->pluck('name')->all());
 
-        $this->actingAs($this->user)->get('/tags/laravel')->assertOk()->assertSee('Renamed');
+        $laravel = Tag::query()->where('slug', 'laravel')->sole();
+        $this->actingAs($this->user)->get("/tags/{$laravel->id}")->assertOk()->assertSee('Renamed');
         $this->actingAs($this->user)->get('/tags')->assertOk()->assertSee('Laravel')->assertSee('1 item');
 
         // Clearing the field removes every tag (the tags themselves stay).
@@ -126,17 +127,17 @@ class OrganisingTest extends TestCase
         $b->attachTagNames(['JavaScript']);
 
         $js = Tag::query()->where('slug', 'js')->sole();
-        $this->actingAs($this->user)->patch("/tags/{$js->slug}", ['name' => 'javascript'])->assertRedirect('/tags');
+        $this->actingAs($this->user)->patch("/tags/{$js->id}", ['name' => 'javascript'])->assertRedirect('/tags');
 
         $this->assertModelMissing($js);
         $merged = Tag::query()->where('slug', 'javascript')->sole();
         $this->assertSame(2, $merged->items()->count());
 
-        $this->actingAs($this->user)->patch("/tags/{$merged->slug}", ['name' => 'Web dev']);
+        $this->actingAs($this->user)->patch("/tags/{$merged->id}", ['name' => 'Web dev']);
         $this->assertSame('Web dev', $merged->refresh()->name);
         $this->assertSame('web-dev', $merged->slug);
 
-        $this->actingAs($this->user)->delete('/tags/web-dev')->assertRedirect('/tags');
+        $this->actingAs($this->user)->delete("/tags/{$merged->id}")->assertRedirect('/tags');
         $this->assertSame(0, Tag::query()->count());
         $this->assertSame(2, Item::query()->count());
     }
@@ -212,5 +213,18 @@ class OrganisingTest extends TestCase
         // From the reader there is nothing to go back to, so it's the list.
         $other = Item::factory()->create();
         $this->actingAs($this->user)->from("/items/{$other->id}")->delete("/items/{$other->id}")->assertRedirect('/');
+    }
+
+    public function test_tags_with_url_characters_in_their_names_still_open(): void
+    {
+        $item = Item::factory()->create(['title' => 'Slashed']);
+
+        foreach (['work/personal', 'C# & .NET', '50% off?', 'naïve café'] as $name) {
+            $item->syncTagNames([$name]);
+            $tag = Tag::query()->where('slug', Tag::slugFor($name))->sole();
+
+            $this->actingAs($this->user)->get(route('items.tagged', $tag))->assertOk()->assertSee('Slashed');
+            $this->actingAs($this->user)->patch(route('tags.update', $tag), ['name' => $name.' 2'])->assertRedirect('/tags');
+        }
     }
 }
