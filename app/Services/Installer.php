@@ -251,7 +251,7 @@ class Installer
         $example = $this->app->environmentPath().DIRECTORY_SEPARATOR.'.env.example';
 
         if (! copy($example, $envPath)) {
-            throw new \RuntimeException("Could not create {$envPath} from .env.example.");
+            throw new RuntimeException("Could not create {$envPath} from .env.example.");
         }
 
         return true;

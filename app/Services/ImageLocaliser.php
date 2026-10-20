@@ -107,7 +107,7 @@ class ImageLocaliser
      * Download one image into the item's directory.
      *
      * @return array{0: string|null, 1: int} the stored filename (null if
-     *                                        not stored) and bytes downloaded
+     *                                       not stored) and bytes downloaded
      */
     public function store(Item $item, string $url, int $maxBytes, int $timeout): array
     {
