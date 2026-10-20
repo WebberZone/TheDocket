@@ -1,0 +1,14 @@
+PHPUnit 12.5.40 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.26
+Configuration: /app/phpunit.xml
+
+.
+LIST MEMORY: 16668480 bytes for 30 items with 256 KiB HTML + 256 KiB text each
+......
+TAG URL: /tags/work/personal
+......                                                     13 / 13 (100%)
+
+Time: 00:03.296, Memory: 77.00 MB
+
+[30;42mOK (13 tests, 26 assertions)[0m
