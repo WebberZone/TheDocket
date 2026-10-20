@@ -3,7 +3,10 @@
 namespace App\Services\Fetching;
 
 use App\Exceptions\FetchFailedException;
+use App\Exceptions\ResponseTooLargeException;
 use App\Exceptions\UnsafeUrlException;
+use GuzzleHttp\Exception\TransferException;
+use GuzzleHttp\Handler\CurlHandler;
 use GuzzleHttp\Psr7\UriResolver;
 use GuzzleHttp\Psr7\Utils;
 use Illuminate\Http\Client\ConnectionException;
@@ -23,7 +26,14 @@ use Illuminate\Support\Facades\Http;
  *    127.0.0.1 between the check and the connect (DNS rebinding);
  *  - redirects are followed by hand, and each hop is vetted the same way;
  *  - connect and total timeouts, a redirect cap, and a byte cap enforced
- *    both on Content-Length and while streaming the body.
+ *    on Content-Length and while the body downloads (a progress callback
+ *    aborts the transfer as soon as it passes the cap).
+ *
+ * The transport is always Guzzle's cURL handler. Address pinning is a
+ * cURL option, and Guzzle's default handler stack sends some requests
+ * through its PHP-stream handler instead, which refuses (Guzzle 8) or
+ * silently ignores (Guzzle 7) cURL options. Http::fake() still works: the
+ * fake sits in front of whichever handler is set.
  *
  * If the host routes outbound traffic through an HTTP proxy (HTTPS_PROXY
  * and friends), the proxy does its own DNS lookup and the pinning above
@@ -31,24 +41,28 @@ use Illuminate\Support\Facades\Http;
  */
 class SafeHttpClient
 {
-    public function __construct(protected HostResolver $resolver) {}
+    public function __construct(
+        protected HostResolver $resolver,
+        protected IpGuard $guard,
+    ) {}
 
     /**
      * GET a URL and return its body, refusing anything unsafe.
      *
      * @param  int  $maxBytes  abandon the download past this many bytes
      * @param  string  $accept  the Accept header to send
+     * @param  int|null  $timeout  seconds per request; the fetch.timeout setting when null
      *
      * @throws FetchFailedException
      */
-    public function get(string $url, int $maxBytes, string $accept = '*/*'): FetchedResponse
+    public function get(string $url, int $maxBytes, string $accept = '*/*', ?int $timeout = null): FetchedResponse
     {
         $maxRedirects = (int) config('docket.fetch.max_redirects', 5);
 
         for ($hop = 0; ; $hop++) {
             [$host, $port, $address] = $this->vet($url);
 
-            $response = $this->send($url, $host, $port, $address, $accept);
+            $response = $this->send($url, $host, $port, $address, $accept, $maxBytes, $timeout ?? (int) settings('fetch.timeout'));
             $status = $response->status();
             $location = $response->header('Location');
 
@@ -73,7 +87,7 @@ class SafeHttpClient
 
             $length = $response->header('Content-Length');
             if (is_numeric($length) && (int) $length > $maxBytes) {
-                throw FetchFailedException::permanent($this->tooLargeMessage($maxBytes));
+                throw new ResponseTooLargeException($this->tooLargeMessage($maxBytes), $maxBytes);
             }
 
             return new FetchedResponse(
@@ -81,7 +95,7 @@ class SafeHttpClient
                 status: $status,
                 contentType: $contentType,
                 charset: $charset,
-                body: $this->readBody($response, $maxBytes),
+                body: $this->body($response, $maxBytes),
             );
         }
     }
@@ -112,7 +126,7 @@ class SafeHttpClient
         }
 
         foreach ($addresses as $address) {
-            if (! IpGuard::isPublic($address)) {
+            if (! $this->guard->allows($address)) {
                 throw new UnsafeUrlException("Refused to fetch {$host}: it points at a private or local network address.");
             }
         }
@@ -123,7 +137,7 @@ class SafeHttpClient
     /**
      * @throws FetchFailedException
      */
-    protected function send(string $url, string $host, int $port, string $address, string $accept): Response
+    protected function send(string $url, string $host, int $port, string $address, string $accept, int $maxBytes, int $timeout): Response
     {
         $pinned = str_contains($address, ':') ? "[{$address}]" : $address;
 
@@ -132,46 +146,50 @@ class SafeHttpClient
             ? [CURLOPT_RESOLVE => ["{$host}:{$port}:{$pinned}"]]
             : [];
 
+        $tooLarge = false;
+
         try {
             return Http::withHeaders([
                 'User-Agent' => (string) config('docket.fetch.user_agent'),
                 'Accept' => $accept,
                 'Accept-Language' => 'en-GB,en;q=0.9,*;q=0.5',
             ])
-                ->timeout((int) settings('fetch.timeout'))
+                ->setHandler(new CurlHandler())
+                ->timeout(max(1, $timeout))
                 ->connectTimeout((int) config('docket.fetch.connect_timeout', 10))
                 ->withoutRedirecting()
                 ->withOptions([
-                    'stream' => true,
                     'protocols' => ['http', 'https'],
                     'curl' => $curl,
+                    // Returning true aborts the transfer. The expected size
+                    // is known as soon as the headers arrive, so an
+                    // oversized Content-Length stops before the body.
+                    'progress' => function (int $expected, int $downloaded) use ($maxBytes, &$tooLarge): bool {
+                        return $tooLarge = $expected > $maxBytes || $downloaded > $maxBytes;
+                    },
                 ])
                 ->get($url);
-        } catch (ConnectionException $e) {
+        } catch (ConnectionException|TransferException $e) {
+            if ($tooLarge) {
+                throw new ResponseTooLargeException($this->tooLargeMessage($maxBytes), $maxBytes);
+            }
+
             throw new FetchFailedException('Could not connect: '.$this->shortError($e->getMessage()));
         }
     }
 
     /**
-     * Read the body in chunks, giving up as soon as it passes the cap.
+     * The body, with the cap checked again for transports that don't report
+     * progress (Http::fake() in tests).
      *
      * @throws FetchFailedException
      */
-    protected function readBody(Response $response, int $maxBytes): string
+    protected function body(Response $response, int $maxBytes): string
     {
-        $stream = $response->toPsrResponse()->getBody();
-        $body = '';
+        $body = $response->body();
 
-        try {
-            while (! $stream->eof()) {
-                $body .= $stream->read(65536);
-
-                if (strlen($body) > $maxBytes) {
-                    throw FetchFailedException::permanent($this->tooLargeMessage($maxBytes));
-                }
-            }
-        } finally {
-            $stream->close();
+        if (strlen($body) > $maxBytes) {
+            throw new ResponseTooLargeException($this->tooLargeMessage($maxBytes), $maxBytes);
         }
 
         return $body;
