@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\FetchFailedException;
+use App\Exceptions\ResponseTooLargeException;
 use App\Models\Item;
 use App\Services\Fetching\SafeHttpClient;
 use DOMElement;
@@ -10,6 +11,7 @@ use DOMXPath;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Masterminds\HTML5;
+use Throwable;
 
 /**
  * Downloads an article's images to private storage and points their src
@@ -18,8 +20,9 @@ use Masterminds\HTML5;
  *
  * Images go through SafeHttpClient like any other fetch. Only raster
  * formats are kept (SVG can carry scripts and would be served from this
- * origin); anything that fails, is too big, or is past the per-article cap
- * keeps its remote src.
+ * origin); anything that fails, is too big, or is past the article's
+ * budget keeps its remote src. The budget (ImageDownloads) is shared by the
+ * inline images and the lead image of one article.
  */
 class ImageLocaliser
 {
@@ -43,13 +46,32 @@ class ImageLocaliser
     public function __construct(protected SafeHttpClient $http) {}
 
     /**
-     * Rewrite every <img> in already-sanitised article HTML.
+     * A download budget for one article: use it for the inline images and
+     * then the lead image, so both share one set of limits and the lead
+     * image reuses an inline copy.
+     */
+    public function forItem(Item $item): ImageDownloads
+    {
+        return new ImageDownloads($this, $item);
+    }
+
+    /**
+     * Rewrite every <img> in already-sanitised article HTML, with a fresh
+     * budget. Use forItem() when the lead image should share it.
      */
     public function localise(Item $item, string $html): string
     {
-        $limit = (int) settings('images.max_per_item');
+        return $this->forItem($item)->localise($html);
+    }
 
-        if (! config('docket.images.enabled') || $limit < 1 || ! str_contains($html, '<img')) {
+    /**
+     * Rewrite every <img> src that $download stores to the local copy.
+     *
+     * @param  callable(string): ?string  $download  URL in, stored filename (or null) out
+     */
+    public function rewrite(Item $item, string $html, callable $download): string
+    {
+        if (! str_contains($html, '<img')) {
             return $html;
         }
 
@@ -64,8 +86,6 @@ class ImageLocaliser
             return $html;
         }
 
-        $stored = [];
-
         foreach (iterator_to_array($root->getElementsByTagName('img')) as $img) {
             $src = $img->getAttribute('src');
 
@@ -73,14 +93,10 @@ class ImageLocaliser
                 continue;
             }
 
-            if (! array_key_exists($src, $stored)) {
-                $stored[$src] = count(array_filter($stored)) < $limit
-                    ? $this->store($item, $src)
-                    : null;
-            }
+            $filename = $download($src);
 
-            if ($stored[$src] !== null) {
-                $img->setAttribute('src', $this->url($item, $stored[$src]));
+            if ($filename !== null) {
+                $img->setAttribute('src', $this->url($item, $filename));
             }
         }
 
@@ -90,17 +106,21 @@ class ImageLocaliser
     /**
      * Download one image into the item's directory.
      *
-     * @return string|null the stored filename, or null if it was not stored
+     * @return array{0: string|null, 1: int} the stored filename (null if
+     *                                       not stored) and bytes downloaded
      */
-    public function store(Item $item, string $url): ?string
+    public function store(Item $item, string $url, int $maxBytes, int $timeout): array
     {
         try {
-            $response = $this->http->get($url, (int) config('docket.images.max_kb') * 1024, 'image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.1');
+            $response = $this->http->get($url, $maxBytes, 'image/avif,image/webp,image/png,image/jpeg,image/gif;q=0.9,*/*;q=0.1', $timeout);
         } catch (FetchFailedException $e) {
             Log::debug('Image not stored', ['item' => $item->id, 'url' => $url, 'reason' => $e->getMessage()]);
 
-            return null;
+            // An abandoned oversized download spent (up to) its cap.
+            return [null, $e instanceof ResponseTooLargeException ? $e->limit : 0];
         }
+
+        $bytes = strlen($response->body);
 
         // Trust the bytes, not the header: a server can label anything
         // image/png.
@@ -108,14 +128,28 @@ class ImageLocaliser
         $extension = self::TYPES[$sniffed] ?? null;
 
         if ($extension === null) {
-            return null;
+            return [null, $bytes];
         }
 
         $filename = sha1($url).'.'.$extension;
+        $path = $item->storageDirectory().'/'.$filename;
 
-        Storage::disk(Item::DISK)->put($item->storageDirectory().'/'.$filename, $response->body);
+        // A failed write (full disk, permissions) must leave the working
+        // remote src in place, not point the article at a missing file.
+        try {
+            $written = Storage::disk(Item::DISK)->put($path, $response->body);
+        } catch (Throwable $e) {
+            report($e);
+            $written = false;
+        }
 
-        return $filename;
+        if ($written === false) {
+            Log::warning('Could not store an article image; keeping its remote address.', ['item' => $item->id, 'path' => $path]);
+
+            return [null, $bytes];
+        }
+
+        return [$filename, $bytes];
     }
 
     /**

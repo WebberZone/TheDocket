@@ -94,7 +94,7 @@ class ContentSecurityPolicyTest extends TestCase
         $user->createToken('Shortcut');
 
         $pages = [
-            '/', '/archive', '/favourites', '/search?q=the', '/tags', '/tags/reading',
+            '/', '/archive', '/favourites', '/search?q=the', '/tags', "/tags/{$tag->id}",
             "/items/{$item->id}", '/import', '/settings', '/tools', '/profile',
             '/save?url='.urlencode('https://example.com/new'),
         ];

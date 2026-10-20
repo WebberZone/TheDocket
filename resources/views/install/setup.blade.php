@@ -14,11 +14,24 @@
     @endif
 
     {{-- No @csrf: these routes run before the session store exists and are
-         disabled entirely once the owner account has been created.
+         disabled entirely once the owner account has been created. The
+         setup code does the job CSRF would: a request that can't read the
+         server's files can't supply it.
          Relative action, not route(): before .env exists the app defaults
          to APP_ENV=production and forces https URLs, which breaks installs
          served over plain http. --}}
     <form method="POST" action="/install/setup">
+        <label for="setup_code">Setup code</label>
+        <input type="text" id="setup_code" name="setup_code" required autocomplete="off" spellcheck="false"
+               value="{{ $input['setup_code'] ?? '' }}">
+        <span class="hint">
+            Proves you control the server. Read it there:
+            <code>cat {{ $codeLocation }}</code>
+        </span>
+        @if ($errors->has('setup_code'))
+            <p class="field-error">{{ $errors->first('setup_code') }}</p>
+        @endif
+
         <label for="url">Site URL</label>
         <input type="url" id="url" name="url" required
                value="{{ $input['url'] ?? '' }}">

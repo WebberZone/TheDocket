@@ -70,6 +70,20 @@ class Item extends Model
         'longest' => 'Longest',
     ];
 
+    /**
+     * Every column except the two article bodies, which can run to
+     * hundreds of kilobytes each: what lists, bulk actions and the CSV
+     * export select.
+     */
+    public const LIST_COLUMNS = [
+        'id', 'url', 'normalized_url', 'resolved_url', 'title', 'author',
+        'site_name', 'excerpt', 'lead_image_url', 'lead_image_path',
+        'word_count', 'reading_time', 'language', 'published_at', 'status',
+        'archived_at', 'is_favourite', 'favourited_at', 'read_progress',
+        'last_read_at', 'source', 'fetch_status', 'fetch_error',
+        'fetch_attempts', 'fetched_at', 'added_at', 'created_at', 'updated_at',
+    ];
+
     protected $fillable = [
         'url',
         'normalized_url',
@@ -194,9 +208,21 @@ class Item extends Model
         return $this->status === ItemStatus::Archived;
     }
 
+    /**
+     * Whether a readable copy is stored. Independent of the latest fetch:
+     * a failed refresh keeps the last good copy readable.
+     */
     public function hasArticle(): bool
     {
-        return $this->fetch_status === FetchStatus::Fetched && trim((string) $this->content_html) !== '';
+        return trim((string) $this->content_html) !== '';
+    }
+
+    /**
+     * A copy is stored but the latest attempt to refresh it failed.
+     */
+    public function refreshFailed(): bool
+    {
+        return $this->fetch_status === FetchStatus::Failed && $this->hasArticle();
     }
 
     public function archive(): void
@@ -246,6 +272,16 @@ class Item extends Model
     public function syncTagNames(iterable $names): void
     {
         $this->tags()->sync(Tag::idsForNames($names));
+    }
+
+    /**
+     * Select everything but the article bodies.
+     *
+     * @param  Builder<Item>  $query
+     */
+    public function scopeWithoutBodies(Builder $query): void
+    {
+        $query->select(array_map(fn (string $column): string => 'items.'.$column, self::LIST_COLUMNS));
     }
 
     /**
@@ -300,8 +336,13 @@ class Item extends Model
             ->selectRaw('rowid AS fts_rowid, bm25(items_fts, 10.0, 5.0, 1.0) AS fts_rank')
             ->whereRaw('items_fts MATCH ?', [$match]);
 
-        $query->joinSub($matches, 'fts', 'fts.fts_rowid', '=', 'items.id')
-            ->select('items.*');
+        // Keep any column list the caller chose (withoutBodies()); otherwise
+        // select the item's own columns, not the join's.
+        if ($query->getQuery()->columns === null) {
+            $query->select('items.*');
+        }
+
+        $query->joinSub($matches, 'fts', 'fts.fts_rowid', '=', 'items.id');
 
         if ($orderByRelevance) {
             $query->orderBy('fts.fts_rank');

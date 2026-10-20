@@ -42,7 +42,10 @@ class DocketRefetchCommand extends Command
         $spacing = max(0, (int) settings('import.spacing_seconds'));
         $count = 0;
 
-        foreach ($query->orderBy('id')->lazy() as $item) {
+        // By ID rather than by offset: items leave the failed/pending
+        // selection as they are fetched (at once, on a sync queue), and
+        // offset paging over a shrinking result set skips rows.
+        foreach ($query->withoutBodies()->lazyById(200, 'items.id', 'id') as $item) {
             $this->queue($item, $count * $spacing);
             $count++;
         }

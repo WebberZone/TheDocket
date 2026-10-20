@@ -1,6 +1,9 @@
 @php
     /** @var \App\Models\Item $item */
     $failed = $item->fetch_status === \App\Enums\FetchStatus::Failed;
+    // fetched_at is only set by a successful fetch, so a failed item that
+    // has one still has its saved copy (lists don't load article bodies).
+    $refreshFailed = $failed && $item->fetched_at !== null;
     $pending = $item->fetch_status === \App\Enums\FetchStatus::Pending;
 @endphp
 <li class="flex gap-3 px-4 py-4 sm:px-5">
@@ -33,7 +36,7 @@
                 <span class="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600">{{ __('Fetching…') }}</span>
             @elseif ($failed)
                 <span class="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800" title="{{ $item->fetch_error }}">
-                    {{ __('Could not fetch') }}
+                    {{ $refreshFailed ? __('Refresh failed') : __('Could not fetch') }}
                 </span>
             @endif
             @if ($item->isArchived())
@@ -45,7 +48,7 @@
             <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $item->excerpt }}</p>
         @endif
 
-        @if ($failed && $item->fetch_error)
+        @if ($failed && ! $refreshFailed && $item->fetch_error)
             <p class="mt-2 text-sm text-amber-800">{{ $item->fetch_error }}</p>
         @endif
 

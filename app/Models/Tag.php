@@ -24,11 +24,6 @@ class Tag extends Model
 
     protected $fillable = ['name', 'slug'];
 
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
-
     /**
      * @return BelongsToMany<Item, $this>
      */
@@ -50,7 +45,9 @@ class Tag extends Model
     }
 
     /**
-     * The case-insensitive identity of a tag name. Not Str::slug(): that
+     * The case-insensitive identity of a tag name, used to match names, not
+     * in URLs: a name may contain "/" or other characters a route can't
+     * carry, so tags are routed by ID. Not Str::slug(): that
      * transliterates to ASCII and would turn a non-Latin tag into nothing.
      */
     public static function slugFor(string $name): string

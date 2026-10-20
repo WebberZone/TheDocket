@@ -35,7 +35,7 @@ class PageSmokeTest extends TestCase
             '/search?q=the&sort=newest',
             '/search',
             '/tags',
-            '/tags/reading',
+            "/tags/{$tag->id}",
             "/items/{$fetched->id}",
             "/items/{$pending->id}",
             "/items/{$failed->id}",

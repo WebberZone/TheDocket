@@ -13,6 +13,7 @@ use App\Services\ImageLocaliser;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Jobs\SyncJob;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -32,6 +33,8 @@ class FetchItemContent implements ShouldQueue
 
     /**
      * Image downloads can add up; this is the ceiling for the whole job.
+     * The queue's retry_after (config/queue.php) must stay above it, or a
+     * second worker picks the job up while the first is still running.
      */
     public int $timeout = 300;
 
@@ -41,6 +44,22 @@ class FetchItemContent implements ShouldQueue
     public bool $deleteWhenMissingModels = true;
 
     public function __construct(public Item $item) {}
+
+    /**
+     * One fetch per item at a time: a retry or refetch queued while an
+     * earlier fetch of the same item is still running is dropped, not run
+     * alongside it (the running one is about to store the article anyway).
+     *
+     * @return list<WithoutOverlapping>
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping('item-'.$this->item->getKey()))
+                ->dontRelease()
+                ->expireAfter($this->timeout + 60),
+        ];
+    }
 
     public function tries(): int
     {
@@ -92,27 +111,45 @@ class FetchItemContent implements ShouldQueue
 
         $html = $article->html !== null ? $sanitiser->sanitise($article->html) : '';
 
-        $item->forceFill([
+        $metadata = [
             'resolved_url' => $response->url !== $item->url ? $response->url : null,
             'author' => $article->author,
             'site_name' => $article->siteName,
             'lead_image_url' => $article->leadImageUrl,
             'language' => $article->language,
             'published_at' => $article->publishedAt,
-        ]);
-
-        if ($this->shouldReplaceTitle($item) && $article->title !== null) {
-            $item->title = $article->title;
-        }
+            'excerpt' => $article->excerpt,
+        ];
 
         if (trim(strip_tags($html, '<img>')) === '') {
-            $item->forceFill(['excerpt' => $article->excerpt])->save();
+            // Nothing readable this time. Fill in only what was missing, so
+            // a refresh of a page that has since changed or broken doesn't
+            // wipe the details of the copy already saved.
+            foreach ($metadata as $field => $value) {
+                if ($value !== null && blank($item->getAttribute($field))) {
+                    $item->setAttribute($field, $value);
+                }
+            }
+
+            if ($this->shouldReplaceTitle($item) && $article->title !== null) {
+                $item->title = $article->title;
+            }
+
+            $item->save();
             $this->recordFailure('Could not find any article text on this page. The original link still works.');
 
             return;
         }
 
-        $html = $images->localise($item, $html);
+        $item->forceFill($metadata);
+
+        if ($this->shouldReplaceTitle($item) && $article->title !== null) {
+            $item->title = $article->title;
+        }
+
+        // One budget for the inline images and the lead image.
+        $downloads = $images->forItem($item);
+        $html = $downloads->localise($html);
         $text = HtmlSanitiser::toText($html);
         $words = HtmlSanitiser::wordCount($text);
         $wordsPerMinute = max(1, (int) settings('words_per_minute'));
@@ -123,9 +160,7 @@ class FetchItemContent implements ShouldQueue
             'excerpt' => $article->excerpt ?? Str::limit(str_replace("\n", ' ', $text), 280),
             'word_count' => $words,
             'reading_time' => $words > 0 ? (int) max(1, ceil($words / $wordsPerMinute)) : 0,
-            'lead_image_path' => $article->leadImageUrl !== null
-                ? $images->store($item, $article->leadImageUrl)
-                : null,
+            'lead_image_path' => $downloads->lead($article->leadImageUrl),
             'fetch_status' => FetchStatus::Fetched,
             'fetch_error' => null,
             'fetched_at' => now(),

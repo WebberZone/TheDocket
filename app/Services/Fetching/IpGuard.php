@@ -50,6 +50,16 @@ class IpGuard
         'ff00::/8',           // multicast
     ];
 
+    /**
+     * The check SafeHttpClient runs on every resolved address. An instance
+     * method (bound in the container) so the real-transport integration
+     * test can point a hostname at a local fixture server.
+     */
+    public function allows(string $ip): bool
+    {
+        return self::isPublic($ip);
+    }
+
     public static function isPublic(string $ip): bool
     {
         $ip = trim($ip, '[] ');

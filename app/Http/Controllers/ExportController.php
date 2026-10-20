@@ -3,25 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Services\Exporter;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
 {
     /**
-     * Pocket-shaped CSV: title, url, time_added, tags, status.
+     * Pocket-shaped CSV: title, url, time_added, tags, status. ?for=spreadsheet
+     * neutralises cells a spreadsheet would run as formulas.
      */
-    public function csv(Exporter $exporter): StreamedResponse
+    public function csv(Request $request, Exporter $exporter): StreamedResponse
     {
+        $forSpreadsheets = $request->query('for') === 'spreadsheet';
+
         return response()->streamDownload(
-            function () use ($exporter): void {
+            function () use ($exporter, $forSpreadsheets): void {
                 $handle = fopen('php://output', 'w');
 
                 if ($handle !== false) {
-                    $exporter->writeCsv($handle);
+                    $exporter->writeCsv($handle, $forSpreadsheets);
                     fclose($handle);
                 }
             },
-            'docket-export-'.now()->format('Y-m-d').'.csv',
+            'docket-export-'.now()->format('Y-m-d').($forSpreadsheets ? '-spreadsheet' : '').'.csv',
             ['Content-Type' => 'text/csv; charset=UTF-8']
         );
     }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Exceptions\InstallStateUnknownException;
 use App\Services\Installer;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -41,7 +42,15 @@ class DocketInstallCommand extends Command
             return SymfonyCommand::FAILURE;
         }
 
-        if ($installer->isInstalled() && ! $this->option('force')) {
+        try {
+            $installed = $installer->isInstalled();
+        } catch (InstallStateUnknownException $e) {
+            $this->components->error($e->getMessage());
+
+            return SymfonyCommand::FAILURE;
+        }
+
+        if ($installed && ! $this->option('force')) {
             $this->components->warn(
                 'Docket already has a user account. Re-run with --force to run the installer anyway (existing data is never deleted).'
             );
@@ -95,32 +104,51 @@ class DocketInstallCommand extends Command
             return SymfonyCommand::FAILURE;
         }
 
-        // Persist the identity to .env so a later `db:seed` recreates the
-        // same account rather than the config/docket.php fallback owner.
-        // The password is deliberately NOT written to .env: it is hashed
-        // straight into the database below.
-        $installer->writeEnvValues([
-            'APP_URL' => $url,
-            'DOCKET_USER_NAME' => $name,
-            'DOCKET_USER_EMAIL' => $email,
-        ]);
-        $this->components->task('.env updated (APP_URL, owner name/email)', fn (): bool => true);
+        // Serialised with the web installer, so the two can't race each
+        // other into creating two accounts.
+        $lock = $installer->acquireLock();
 
-        $installer->ensureSqliteDatabase();
+        if ($lock === null) {
+            $this->components->error('Another installation is running right now. Try again in a moment.');
 
-        $this->components->task('running database migrations', fn (): bool => $installer->migrate());
+            return SymfonyCommand::FAILURE;
+        }
 
-        if ($installer->ownerExists($email)) {
-            $this->components->warn("An account for {$email} already exists — its password was left unchanged.");
-        } else {
-            $this->components->task(
-                "creating owner account for {$email}",
-                function () use ($installer, $name, $email, $plainPassword): bool {
-                    $installer->createOwner($name, $email, $plainPassword);
+        try {
+            $installer->ensureSqliteDatabase();
 
-                    return true;
-                }
-            );
+            $this->components->task('running database migrations', fn (): bool => $installer->migrate());
+
+            if ($installer->ownerExists($email)) {
+                $this->components->warn("An account for {$email} already exists — its password was left unchanged.");
+            } elseif ($installer->hasOwner()) {
+                $this->components->warn('Docket already has its owner account, under a different email. It has one account, so no new one was created; change the email on the Profile page instead.');
+
+                return SymfonyCommand::FAILURE;
+            } else {
+                $this->components->task(
+                    "creating owner account for {$email}",
+                    function () use ($installer, $name, $email, $plainPassword): bool {
+                        $installer->createOwner($name, $email, $plainPassword);
+
+                        return true;
+                    }
+                );
+            }
+
+            // Written once the account is in place, so a refused install
+            // leaves .env alone. The password is deliberately NOT written
+            // to .env: it is hashed straight into the database.
+            $installer->writeEnvValues([
+                'APP_URL' => $url,
+                'DOCKET_USER_NAME' => $name,
+                'DOCKET_USER_EMAIL' => $email,
+            ]);
+            $this->components->task('.env updated (APP_URL, owner name/email)', fn (): bool => true);
+
+            $installer->markInstalled();
+        } finally {
+            $installer->releaseLock($lock);
         }
 
         $this->printNextSteps($url, $email);
