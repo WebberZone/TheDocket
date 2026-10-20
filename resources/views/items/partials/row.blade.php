@@ -94,7 +94,7 @@
                 class="text-slate-600 hover:text-teal-800">{{ __('Original') }} ↗</a>
 
             <form method="post" action="{{ route('items.destroy', $item) }}"
-                onsubmit="return confirm(@js(__('Delete this item? This cannot be undone.')))">
+                data-confirm="{{ __('Delete this item? This cannot be undone.') }}">
                 @csrf
                 @method('delete')
                 <button type="submit" class="text-slate-500 hover:text-red-700">{{ __('Delete') }}</button>

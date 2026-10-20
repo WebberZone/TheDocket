@@ -25,7 +25,7 @@
                     class="w-56 rounded-md border-slate-300 text-sm shadow-sm focus:border-teal-500 focus:ring-teal-500">
 
                 <label for="sort" class="sr-only">{{ __('Sort') }}</label>
-                <select id="sort" name="sort" onchange="this.form.submit()"
+                <select id="sort" name="sort" data-autosubmit
                     class="rounded-md border-slate-300 text-sm shadow-sm focus:border-teal-500 focus:ring-teal-500">
                     @if ($q !== '')
                         <option value="" @selected($sort === 'relevance')>{{ __('Most relevant') }}</option>
@@ -79,17 +79,12 @@
                     @endif
                 </div>
             @else
-                <div x-data="{
-                        selected: [],
-                        ids: @js($items->pluck('id')->map(fn ($id) => (string) $id)->values()),
-                        get all() { return this.selected.length === this.ids.length },
-                        toggleAll() { this.selected = this.all ? [] : [...this.ids] },
-                    }">
+                <div x-data="bulkSelection"
+                    data-ids="{{ $items->pluck('id')->map(fn ($id) => (string) $id)->values()->toJson() }}"
+                    data-confirm-delete="{{ __('Delete the selected items? This cannot be undone.') }}">
 
                     {{-- Bulk actions: the checkboxes below join this form via form="bulk". --}}
-                    <form id="bulk" method="post" action="{{ route('items.bulk') }}"
-                        x-data="{ action: '' }"
-                        @submit="if (action === 'delete' && ! confirm(@js(__('Delete the selected items? This cannot be undone.')))) $event.preventDefault()"
+                    <form id="bulk" method="post" action="{{ route('items.bulk') }}" @submit="submit($event)"
                         class="mb-3 flex flex-wrap items-center gap-2 text-sm">
                         @csrf
                         <label class="flex items-center gap-2 text-slate-600">
@@ -98,9 +93,9 @@
                             {{ __('Select all') }}
                         </label>
 
-                        <template x-if="selected.length > 0">
+                        <template x-if="count > 0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="text-slate-500" x-text="selected.length + ' selected'"></span>
+                                <span class="text-slate-500" x-text="countLabel"></span>
                                 <label for="bulk-action" class="sr-only">{{ __('Action') }}</label>
                                 <select id="bulk-action" name="action" x-model="action" required
                                     class="rounded-md border-slate-300 py-1 text-sm shadow-sm focus:border-teal-500 focus:ring-teal-500">
@@ -109,7 +104,7 @@
                                         <option value="{{ $value }}">{{ __($label) }}</option>
                                     @endforeach
                                 </select>
-                                <input x-show="action === 'tag'" name="tags" type="text" placeholder="{{ __('Tags to add') }}"
+                                <input x-show="tagging" name="tags" type="text" placeholder="{{ __('Tags to add') }}"
                                     class="rounded-md border-slate-300 py-1 text-sm shadow-sm focus:border-teal-500 focus:ring-teal-500">
                                 <x-secondary-button type="submit" class="py-1">{{ __('Apply') }}</x-secondary-button>
                             </div>

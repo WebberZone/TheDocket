@@ -30,10 +30,12 @@
                             </form>
 
                             <div class="flex items-center gap-4 text-sm">
-                                <button type="button" @click="editing = ! editing" class="text-slate-600 hover:text-teal-800"
-                                    x-text="editing ? @js(__('Cancel')) : @js(__('Rename'))">{{ __('Rename') }}</button>
+                                <button type="button" @click="editing = ! editing" class="text-slate-600 hover:text-teal-800">
+                                    <span x-show="! editing">{{ __('Rename') }}</span>
+                                    <span x-show="editing" x-cloak>{{ __('Cancel') }}</span>
+                                </button>
                                 <form method="post" action="{{ route('tags.destroy', $tag) }}"
-                                    onsubmit="return confirm(@js(__('Delete this tag? The items stay; only the tag is removed.')))">
+                                    data-confirm="{{ __('Delete this tag? The items stay; only the tag is removed.') }}">
                                     @csrf
                                     @method('delete')
                                     <button type="submit" class="text-slate-500 hover:text-red-700">{{ __('Delete') }}</button>

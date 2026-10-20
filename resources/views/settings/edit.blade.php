@@ -19,7 +19,7 @@
                             </p>
                         </header>
                         <div class="mt-4 flex flex-wrap items-center gap-4">
-                            <a href="{{ $bookmarklet }}" onclick="event.preventDefault(); alert(@js(__('Drag this button to your bookmarks bar rather than clicking it here.')))"
+                            <a href="{{ $bookmarklet }}" data-bookmarklet-hint="{{ __('Drag this button to your bookmarks bar rather than clicking it here.') }}"
                                 class="inline-flex items-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-800">
                                 <x-application-logo class="h-5 w-5" /> {{ __('Save to Docket') }}
                             </a>
@@ -28,7 +28,7 @@
                         <details class="mt-3 text-sm text-slate-600">
                             <summary class="cursor-pointer">{{ __('Copy the code instead') }}</summary>
                             <p class="mt-2">{{ __('Create a bookmark by hand and paste this as its URL:') }}</p>
-                            <textarea readonly rows="4" onclick="this.select()"
+                            <textarea readonly rows="4" data-select-on-click
                                 class="mt-2 block w-full rounded-md border-slate-300 font-mono text-xs shadow-sm">{{ $bookmarklet }}</textarea>
                         </details>
                     </section>
@@ -53,7 +53,7 @@
                         @if ($plainToken)
                             <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
                                 <p class="text-sm font-medium text-amber-900">{{ __('Your new token. Copy it now: it will not be shown again.') }}</p>
-                                <input type="text" readonly value="{{ $plainToken }}" onclick="this.select()"
+                                <input type="text" readonly value="{{ $plainToken }}" data-select-on-click
                                     class="mt-2 block w-full rounded-md border-amber-300 bg-white font-mono text-sm shadow-sm">
                             </div>
                         @endif
@@ -81,7 +81,7 @@
                                             </span>
                                         </div>
                                         <form method="post" action="{{ route('tokens.destroy', $token->id) }}"
-                                            onsubmit="return confirm(@js(__('Revoke this token? Anything using it will stop working.')))">
+                                            data-confirm="{{ __('Revoke this token? Anything using it will stop working.') }}">
                                             @csrf
                                             @method('delete')
                                             <button type="submit" class="text-slate-500 hover:text-red-700">{{ __('Revoke') }}</button>

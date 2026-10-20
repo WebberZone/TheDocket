@@ -27,15 +27,25 @@ export function applyPreferences(prefs, root = document.documentElement) {
     root.style.setProperty('--reader-size', `${prefs.size}px`);
 }
 
-export default (config) => ({
+/**
+ * Registered as Alpine.data('reader'). The progress endpoint and the saved
+ * position come in as data attributes on the root element (the CSP build
+ * can't take a config object built in the markup):
+ *
+ *   <body x-data="reader" data-progress-url="…" data-progress="0.42">
+ */
+export default () => ({
     prefs: loadPreferences(),
     panel: false,
-    progressUrl: config.progressUrl,
-    savedProgress: Number(config.progress) || 0,
+    progressUrl: '',
+    savedProgress: 0,
     lastSent: null,
     timer: null,
 
     init() {
+        this.progressUrl = this.$el.dataset.progressUrl || '';
+        this.savedProgress = Number(this.$el.dataset.progress) || 0;
+
         applyPreferences(this.prefs);
 
         this.$watch('prefs', (prefs) => {
@@ -89,6 +99,10 @@ export default (config) => ({
     },
 
     send(leaving) {
+        if (!this.progressUrl) {
+            return;
+        }
+
         const progress = Math.round(this.progress() * 10000) / 10000;
 
         if (this.lastSent !== null && Math.abs(progress - this.lastSent) < 0.005) {

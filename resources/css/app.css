@@ -197,3 +197,18 @@
     padding: 0.4em 0.6em;
     text-align: left;
 }
+
+/* Reader controls that follow the theme (no inline style attributes: the CSP forbids them). */
+.reader-border {
+    border-color: var(--reader-rule);
+}
+
+.reader-swatch-sepia {
+    background: #f6efe0;
+    color: #4a3b2a;
+}
+
+.reader-swatch-dark {
+    background: #121417;
+    color: #d6d9de;
+}

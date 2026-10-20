@@ -25,8 +25,9 @@ class ReaderTest extends TestCase
             ->assertSee('On reading')
             ->assertSee('<p>A quiet paragraph about reading.</p>', false)
             ->assertSee('href="https://example.com/on-reading"', false)
-            ->assertSee('reader({ progressUrl:', false)
-            ->assertSee('progress: 0.42', false)
+            ->assertSee('x-data="reader"', false)
+            ->assertSee('data-progress-url="'.route('items.progress', $item).'"', false)
+            ->assertSee('data-progress="0.42"', false)
             ->assertSee('Serif')
             ->assertSee('Sepia')
             ->assertSee('Dark');

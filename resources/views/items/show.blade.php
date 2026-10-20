@@ -15,7 +15,7 @@
     <title>{{ $item->displayTitle() }} — {{ config('app.name', 'Docket') }}</title>
 
     {{-- Appearance before first paint, so a dark-theme reader never flashes white. Mirrors resources/js/reader.js. --}}
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         (function () {
             var p = { theme: 'light', family: 'serif', size: 20 };
             try { Object.assign(p, JSON.parse(localStorage.getItem('docket.reader') || '{}')); } catch (e) {}
@@ -34,8 +34,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="min-h-full antialiased"
-    x-data="reader({ progressUrl: @js(route('items.progress', $item)), progress: {{ (float) $item->read_progress }} })">
+<body class="min-h-full antialiased" x-data="reader"
+    data-progress-url="{{ route('items.progress', $item) }}" data-progress="{{ (float) $item->read_progress }}">
 
     {{-- Top bar --}}
     <header class="reader-bar sticky top-0 z-30 border-b font-sans backdrop-blur">
@@ -83,18 +83,18 @@
                         <div>
                             <p class="reader-muted mb-2 text-xs font-semibold uppercase tracking-wide">{{ __('Text size') }}</p>
                             <div class="flex items-center justify-between">
-                                <button type="button" @click="setSize(-1)" class="rounded-md border px-3 py-1 text-sm" style="border-color: var(--reader-rule)">A−</button>
+                                <button type="button" @click="setSize(-1)" class="reader-border rounded-md border px-3 py-1 text-sm">A−</button>
                                 <span class="reader-muted text-sm" x-text="prefs.size + 'px'"></span>
-                                <button type="button" @click="setSize(1)" class="rounded-md border px-3 py-1 text-lg" style="border-color: var(--reader-rule)">A+</button>
+                                <button type="button" @click="setSize(1)" class="reader-border rounded-md border px-3 py-1 text-lg">A+</button>
                             </div>
                         </div>
                         <div>
                             <p class="reader-muted mb-2 text-xs font-semibold uppercase tracking-wide">{{ __('Typeface') }}</p>
                             <div class="grid grid-cols-2 gap-2">
-                                <button type="button" @click="prefs.family = 'serif'" class="rounded-md border px-3 py-1.5 font-serif text-sm"
-                                    :class="prefs.family === 'serif' && 'ring-2 ring-teal-600'" style="border-color: var(--reader-rule)">{{ __('Serif') }}</button>
-                                <button type="button" @click="prefs.family = 'sans'" class="rounded-md border px-3 py-1.5 font-sans text-sm"
-                                    :class="prefs.family === 'sans' && 'ring-2 ring-teal-600'" style="border-color: var(--reader-rule)">{{ __('Sans') }}</button>
+                                <button type="button" @click="prefs.family = 'serif'" class="reader-border rounded-md border px-3 py-1.5 font-serif text-sm"
+                                    :class="prefs.family === 'serif' && 'ring-2 ring-teal-600'">{{ __('Serif') }}</button>
+                                <button type="button" @click="prefs.family = 'sans'" class="reader-border rounded-md border px-3 py-1.5 font-sans text-sm"
+                                    :class="prefs.family === 'sans' && 'ring-2 ring-teal-600'">{{ __('Sans') }}</button>
                             </div>
                         </div>
                         <div>
@@ -102,10 +102,10 @@
                             <div class="grid grid-cols-3 gap-2">
                                 <button type="button" @click="prefs.theme = 'light'" class="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
                                     :class="prefs.theme === 'light' && 'ring-2 ring-teal-600'">{{ __('Light') }}</button>
-                                <button type="button" @click="prefs.theme = 'sepia'" class="rounded-md border border-amber-200 px-2 py-1.5 text-sm"
-                                    style="background:#f6efe0;color:#4a3b2a" :class="prefs.theme === 'sepia' && 'ring-2 ring-teal-600'">{{ __('Sepia') }}</button>
-                                <button type="button" @click="prefs.theme = 'dark'" class="rounded-md border border-slate-700 px-2 py-1.5 text-sm"
-                                    style="background:#121417;color:#d6d9de" :class="prefs.theme === 'dark' && 'ring-2 ring-teal-600'">{{ __('Dark') }}</button>
+                                <button type="button" @click="prefs.theme = 'sepia'" class="reader-swatch-sepia rounded-md border border-amber-200 px-2 py-1.5 text-sm"
+                                    :class="prefs.theme === 'sepia' && 'ring-2 ring-teal-600'">{{ __('Sepia') }}</button>
+                                <button type="button" @click="prefs.theme = 'dark'" class="reader-swatch-dark rounded-md border border-slate-700 px-2 py-1.5 text-sm"
+                                    :class="prefs.theme === 'dark' && 'ring-2 ring-teal-600'">{{ __('Dark') }}</button>
                             </div>
                         </div>
                     </div>
@@ -142,8 +142,7 @@
                 @if ($item->tags->isNotEmpty())
                     <p class="mt-3 flex flex-wrap gap-1.5 font-sans">
                         @foreach ($item->tags as $tag)
-                            <a href="{{ route('items.tagged', $tag) }}" class="reader-muted rounded-full border px-2 py-0.5 text-xs hover:opacity-80"
-                                style="border-color: var(--reader-rule)">{{ $tag->name }}</a>
+                            <a href="{{ route('items.tagged', $tag) }}" class="reader-muted reader-border rounded-full border px-2 py-0.5 text-xs hover:opacity-80">{{ $tag->name }}</a>
                         @endforeach
                     </p>
                 @endif
@@ -178,7 +177,7 @@
                 </div>
             @endif
 
-            <footer class="mt-16 border-t pt-6 font-sans text-sm" style="border-color: var(--reader-rule)">
+            <footer class="reader-border mt-16 border-t pt-6 font-sans text-sm">
                 <p class="reader-muted">
                     {{ __('Saved :date.', ['date' => $item->added_at?->format('j F Y')]) }}
                     <a href="{{ $item->originalUrl() }}" target="_blank" rel="noopener noreferrer" class="break-all underline underline-offset-2">{{ $item->originalUrl() }}</a>
@@ -203,7 +202,7 @@
                     </form>
 
                     <form method="post" action="{{ route('items.destroy', $item) }}" class="mt-6"
-                        onsubmit="return confirm(@js(__('Delete this item? This cannot be undone.')))">
+                        data-confirm="{{ __('Delete this item? This cannot be undone.') }}">
                         @csrf
                         @method('delete')
                         <button type="submit" class="text-red-700 underline underline-offset-2">{{ __('Delete this item') }}</button>
