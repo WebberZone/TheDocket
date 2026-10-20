@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\EnsureNotInstalled;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -18,12 +19,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // The web installer runs before the app is usable — the
             // database (and with it the session store) may not exist yet —
             // so its routes deliberately skip the 'web' middleware group.
-            Route::middleware([EnsureNotInstalled::class, SecurityHeaders::class])
+            Route::middleware([EnsureNotInstalled::class, SecurityHeaders::class, ContentSecurityPolicy::class])
                 ->group(base_path('routes/install.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: SecurityHeaders::class);
+        $middleware->web(append: [SecurityHeaders::class, ContentSecurityPolicy::class]);
         $middleware->api(append: SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

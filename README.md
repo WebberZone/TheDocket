@@ -252,6 +252,15 @@ hostile:
   checked by content, not by the server's `Content-Type`, and only raster
   formats are stored; SVG stays remote. Images are served only to the
   logged-in owner, with `nosniff`.
+- **Content-Security-Policy** on every page, as a second lock behind the
+  sanitiser: scripts only from this origin or carrying the per-request
+  nonce, no `unsafe-inline` or `unsafe-eval`, no inline event handlers or
+  style attributes, nothing framing the app, forms posting only here.
+  Alpine is its CSP build, so components live in `resources/js` rather
+  than inline in the markup; add behaviour there (or as a `data-*` hook in
+  `resources/js/behaviours.js`), never as an `onclick` attribute. Images
+  may come from any `https:` host, because undownloaded article images
+  stay remote. `npm run dev` is allowed automatically while it runs.
 - The bookmarklet and share target are `GET` requests, because that is
   how they arrive. A third-party page could link you to `/save?url=…`; the
   worst that does is add a link to your own list.

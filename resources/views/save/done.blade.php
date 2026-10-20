@@ -28,17 +28,25 @@
 
         <div class="mt-5 flex justify-center gap-4 text-sm">
             <a href="{{ route('items.index') }}" target="_blank" class="font-medium text-teal-800 hover:underline">{{ __('Open Docket') }}</a>
-            <button type="button" onclick="window.opener ? window.close() : history.back()" class="text-slate-600 hover:underline">{{ __('Close') }}</button>
+            <button type="button" id="close-window" class="text-slate-600 hover:underline">{{ __('Close') }}</button>
         </div>
     </main>
 
-    @unless ($error)
-        <script>
+    {{-- Inline (with the CSP nonce) rather than app.js: this popup loads no Alpine. --}}
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
+        document.getElementById('close-window').addEventListener('click', function () {
+            if (window.opener) {
+                window.close();
+            } else {
+                history.back();
+            }
+        });
+        @unless ($error)
             if (window.opener) {
                 setTimeout(function () { window.close(); }, 1500);
             }
-        </script>
-    @endunless
+        @endunless
+    </script>
 </body>
 
 </html>
