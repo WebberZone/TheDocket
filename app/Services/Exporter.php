@@ -21,26 +21,43 @@ class Exporter
     public const CSV_COLUMNS = ['title', 'url', 'time_added', 'tags', 'status'];
 
     /**
+     * Pocket's CSV. Lossless by default, so it imports back exactly. With
+     * $forSpreadsheets, any cell a spreadsheet would run as a formula gets
+     * a leading apostrophe: titles and tags come from other people's web
+     * pages, and "=HYPERLINK(...)" in a title is someone else's formula.
+     *
      * @param  resource  $handle
      */
-    public function writeCsv($handle): void
+    public function writeCsv($handle, bool $forSpreadsheets = false): void
     {
         fputcsv($handle, self::CSV_COLUMNS, ',', '"', '');
 
-        foreach ($this->items() as $item) {
-            fputcsv($handle, [
+        foreach ($this->items(withBodies: false) as $item) {
+            $row = [
                 $item->title ?? '',
                 $item->url,
                 (string) ($item->added_at?->getTimestamp() ?? ''),
                 $item->tags->pluck('name')->implode('|'),
                 $item->status->pocketName(),
-            ], ',', '"', '');
+            ];
+
+            fputcsv($handle, $forSpreadsheets ? array_map(self::spreadsheetSafe(...), $row) : $row, ',', '"', '');
         }
     }
 
     /**
-     * Streamed one item at a time so a large library never has to fit in
-     * memory as a single array.
+     * Neutralise a cell a spreadsheet would treat as a formula: one starting
+     * with = + - or @, including after leading whitespace or control
+     * characters, or starting with a tab or carriage return.
+     */
+    public static function spreadsheetSafe(string $value): string
+    {
+        return preg_match('/^[\s\x00-\x1f]*[=+\-@]|^[\t\r]/u', $value) === 1 ? "'".$value : $value;
+    }
+
+    /**
+     * Written one item at a time, from small batches, so a large library
+     * never has to fit in memory.
      *
      * @param  resource  $handle
      */
@@ -52,7 +69,7 @@ class Exporter
 
         $first = true;
 
-        foreach ($this->items() as $item) {
+        foreach ($this->items(withBodies: true) as $item) {
             fwrite($handle, ($first ? "\n" : ",\n").json_encode($this->itemToArray($item), $flags));
             $first = false;
         }
@@ -99,16 +116,17 @@ class Exporter
     }
 
     /**
-     * Oldest first, so an export re-imported in order keeps its sequence.
+     * Every item in ID order, fetched in small keyset batches (stable even
+     * if items change mid-export). The CSV needs no article bodies; the
+     * JSON does, so its batches are smaller.
      *
      * @return LazyCollection<int, Item>
      */
-    protected function items(): LazyCollection
+    protected function items(bool $withBodies): LazyCollection
     {
         return Item::query()
+            ->when(! $withBodies, fn ($query) => $query->withoutBodies())
             ->with('tags')
-            ->orderBy('added_at')
-            ->orderBy('id')
-            ->lazy(200);
+            ->lazyById($withBodies ? 25 : 500, 'items.id', 'id');
     }
 }

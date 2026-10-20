@@ -37,37 +37,44 @@ class BulkItemController extends Controller
             'tags.required_if' => 'Enter the tags to add.',
         ]);
 
-        $items = Item::query()->whereIn('id', $data['ids'])->get();
         $tags = Tag::parseList($data['tags'] ?? null);
+        $count = 0;
 
-        foreach ($items as $item) {
-            switch ($data['action']) {
-                case 'archive':
-                    $item->archive();
-                    break;
-                case 'unarchive':
-                    $item->unarchive();
-                    break;
-                case 'favourite':
-                    $item->setFavourite(true);
-                    break;
-                case 'unfavourite':
-                    $item->setFavourite(false);
-                    break;
-                case 'tag':
-                    $item->attachTagNames($tags);
-                    break;
-                case 'retry':
-                    $this->retry($item);
-                    break;
-                case 'delete':
-                    // One by one, so each item's stored images go too.
-                    $item->delete();
-                    break;
-            }
-        }
+        // In batches, without the article bodies: a thousand ticked items
+        // must not mean a thousand full articles in memory at once.
+        Item::query()
+            ->withoutBodies()
+            ->whereIn('items.id', $data['ids'])
+            ->chunkById(100, function ($items) use ($data, $tags, &$count): void {
+                foreach ($items as $item) {
+                    $count++;
 
-        $count = $items->count();
+                    switch ($data['action']) {
+                        case 'archive':
+                            $item->archive();
+                            break;
+                        case 'unarchive':
+                            $item->unarchive();
+                            break;
+                        case 'favourite':
+                            $item->setFavourite(true);
+                            break;
+                        case 'unfavourite':
+                            $item->setFavourite(false);
+                            break;
+                        case 'tag':
+                            $item->attachTagNames($tags);
+                            break;
+                        case 'retry':
+                            $this->retry($item);
+                            break;
+                        case 'delete':
+                            // One by one, so each item's stored images go too.
+                            $item->delete();
+                            break;
+                    }
+                }
+            }, 'items.id', 'id');
 
         return back()->with('status', sprintf(
             '%s: %d %s.',

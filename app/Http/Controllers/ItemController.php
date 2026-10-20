@@ -51,7 +51,7 @@ class ItemController extends Controller
         $sort = $request->query('sort');
         $sort = is_string($sort) && array_key_exists($sort, Item::SORTS) ? $sort : null;
 
-        $query = Item::query()->with('tags');
+        $query = Item::query()->withoutBodies()->with('tags');
 
         if ($view === 'archive') {
             $query->archived();

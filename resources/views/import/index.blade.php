@@ -38,6 +38,10 @@
                         <span class="text-slate-600">— {{ __('the same columns as Pocket\'s export, so it imports back into Docket or anything that reads Pocket files.') }}</span>
                     </li>
                     <li>
+                        <a href="{{ route('export.csv', ['for' => 'spreadsheet']) }}" class="font-medium text-teal-800 hover:underline">{{ __('Download CSV for spreadsheets') }}</a>
+                        <span class="text-slate-600">— {{ __('the same columns, safe to open in Excel, Numbers or Sheets: any title or tag that starts like a formula is kept as plain text (with a leading apostrophe), so a hostile page title can\'t run as a formula. Use the plain CSV for importing.') }}</span>
+                    </li>
+                    <li>
                         <a href="{{ route('export.json') }}" class="font-medium text-teal-800 hover:underline">{{ __('Download JSON') }}</a>
                         <span class="text-slate-600">— {{ __('everything, including the saved article text and HTML.') }}</span>
                     </li>
