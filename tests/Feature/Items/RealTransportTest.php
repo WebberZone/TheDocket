@@ -5,6 +5,7 @@ namespace Tests\Feature\Items;
 use App\Exceptions\FetchFailedException;
 use App\Services\Fetching\IpGuard;
 use App\Services\Fetching\SafeHttpClient;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -21,6 +22,8 @@ use Tests\TestCase;
  */
 class RealTransportTest extends TestCase
 {
+    use RefreshDatabase;
+
     private const HOST = 'docket-fixture.test';
 
     private Process $server;
