@@ -142,9 +142,23 @@ npm ci && npm run build
 
 Point your web server at `public/`, then open
 **`https://your-domain/install`**. The wizard checks the server
-requirements, then asks for the site URL, your name, email and password,
-and installs. It only exists while Docket has no user account: once your
-login is created, `/install` permanently redirects to the login screen.
+requirements, then asks for a setup code, the site URL, your name, email
+and password, and installs.
+
+The setup code proves you control the server: anyone can find a fresh
+deployment's `/install`, so it won't create the account without it. Read
+it on the server once the setup page has loaded:
+
+```sh
+cat storage/app/install/setup-code
+```
+
+The installer only exists while Docket has no account. Once your login
+is created it leaves a marker (`storage/app/install/installed`) and
+`/install` permanently redirects to the login screen. If the database
+can't be read, it answers 503 rather than treating the site as fresh.
+Docket has exactly one account: neither installer, nor `db:seed`, will
+create a second one.
 
 ### Console installer
 
@@ -191,6 +205,10 @@ Development server (app + queue + logs + Vite): `composer dev`.
    User=www-data
    ```
 
+   Keep `--timeout` below the queue's `retry_after` (360 seconds by
+   default, `DB_QUEUE_RETRY_AFTER`), or a slow fetch is handed to a second
+   worker while the first is still running it.
+
 5. One cron entry drives the scheduler (backups, cleanup, monitor):
 
    ```
@@ -218,18 +236,38 @@ BACKUP_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 BACKUP_REGION=auto
 ```
 
-Test a restore early:
+The database in the archive is an SQL dump (`db-dumps/*.sql`, written by
+`sqlite3 .dump`), not a database file: it has to be imported into a new
+database. Test a restore early, on a copy of the server if you can:
 
 ```sh
 php artisan backup:run
 # download the newest zip from the bucket, then:
 unzip Docket/….zip -d /tmp/restore
-mv /tmp/restore/db-dumps/database.sqlite database/database.sqlite
+ls /tmp/restore/db-dumps/                       # one .sql file
+
+# Build a new database from the dump and check it.
+sqlite3 /tmp/restore/restored.sqlite < /tmp/restore/db-dumps/*.sql
+sqlite3 /tmp/restore/restored.sqlite "PRAGMA integrity_check;"      # expect: ok
+sqlite3 /tmp/restore/restored.sqlite "SELECT count(*) FROM items;"
+sqlite3 /tmp/restore/restored.sqlite "INSERT INTO items_fts(items_fts) VALUES('rebuild');"
+
+# Swap it in with nothing writing: stop the worker and the site first.
+php artisan down
+sudo systemctl stop docket-worker        # whatever runs queue:work
+mkdir -p /tmp/before-restore && cp database/database.sqlite* /tmp/before-restore/
+mv /tmp/restore/restored.sqlite database/database.sqlite
+rm -f database/database.sqlite-wal database/database.sqlite-shm
 rsync -a /tmp/restore/…/storage/app/private/ storage/app/private/
-php artisan migrate:status
+chown -R www-data: database storage/app/private
+php artisan migrate --force             # if the backup predates a release
+php artisan up
+sudo systemctl start docket-worker
 ```
 
-Open a saved article and check its images load.
+Then open a saved article, check its images load, and search for a word
+you know is in it. The originals stay in `/tmp/before-restore` until
+you're satisfied.
 
 ## Security notes
 
