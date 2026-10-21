@@ -119,6 +119,10 @@
             <p class="reader-muted mb-6 font-sans text-sm" role="status">{{ session('status') }}</p>
         @endif
 
+        <p x-show="offline" x-cloak class="reader-panel reader-muted mb-6 rounded-lg border p-4 font-sans text-sm" role="status">
+            {{ __("You're offline, reading the copy saved on this device. Your place is kept and sent when you're back online; archiving, favourites and editing need a connection.") }}
+        </p>
+
         <article>
             <header class="mb-8">
                 <h1 class="reader-title text-3xl font-bold leading-tight sm:text-4xl">{{ $item->displayTitle() }}</h1>

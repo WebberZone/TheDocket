@@ -14,7 +14,7 @@
             </div>
         </form>
 
-        <form method="POST" action="{{ route('logout') }}">
+        <form method="POST" action="{{ route('logout') }}" data-clears-offline>
             @csrf
 
             <button type="submit"

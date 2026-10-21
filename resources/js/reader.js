@@ -3,6 +3,8 @@
  * are per browser) and reading progress (sent to the server, so it
  * follows you between devices).
  */
+import { forgetProgress, pendingProgress, postProgress, queueProgress } from './offline';
+
 export const STORAGE_KEY = 'docket.reader';
 export const DEFAULTS = { theme: 'light', family: 'serif', size: 20 };
 export const SIZES = { min: 14, max: 32, step: 2 };
@@ -37,6 +39,7 @@ export function applyPreferences(prefs, root = document.documentElement) {
 export default () => ({
     prefs: loadPreferences(),
     panel: false,
+    offline: !navigator.onLine,
     progressUrl: '',
     savedProgress: 0,
     lastSent: null,
@@ -44,7 +47,9 @@ export default () => ({
 
     init() {
         this.progressUrl = this.$el.dataset.progressUrl || '';
-        this.savedProgress = Number(this.$el.dataset.progress) || 0;
+        // Progress made offline beats the position baked into the page,
+        // which may be an older offline copy.
+        this.savedProgress = pendingProgress(this.progressUrl) ?? (Number(this.$el.dataset.progress) || 0);
 
         applyPreferences(this.prefs);
 
@@ -71,6 +76,8 @@ export default () => ({
 
         this.lastSent = this.savedProgress;
 
+        window.addEventListener('online', () => { this.offline = false; });
+        window.addEventListener('offline', () => { this.offline = true; });
         window.addEventListener('scroll', () => this.schedule(), { passive: true });
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
@@ -111,24 +118,30 @@ export default () => ({
 
         this.lastSent = progress;
 
-        const token = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-        const body = new FormData();
-        body.append('_token', token);
-        body.append('progress', String(progress));
-
-        // sendBeacon survives the page being closed; fetch is used
-        // otherwise so failures don't go unnoticed in the console.
-        if (leaving && navigator.sendBeacon) {
-            navigator.sendBeacon(this.progressUrl, body);
+        // Offline, keep it for offline.js to send when the connection is
+        // back (sendBeacon would accept it and then lose it).
+        if (!navigator.onLine) {
+            queueProgress(this.progressUrl, progress);
 
             return;
         }
 
-        fetch(this.progressUrl, {
-            method: 'POST',
-            body,
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        }).catch(() => {});
+        // sendBeacon survives the page being closed; fetch is used
+        // otherwise so a failure can be queued for later.
+        if (leaving && navigator.sendBeacon) {
+            const body = new FormData();
+            body.append('_token', document.querySelector('meta[name="csrf-token"]')?.content ?? '');
+            body.append('progress', String(progress));
+
+            if (navigator.sendBeacon(this.progressUrl, body)) {
+                forgetProgress(this.progressUrl);
+
+                return;
+            }
+        }
+
+        postProgress(this.progressUrl, progress)
+            .then(() => forgetProgress(this.progressUrl))
+            .catch(() => queueProgress(this.progressUrl, progress));
     },
 });

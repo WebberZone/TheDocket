@@ -80,6 +80,12 @@ class Settings
                 'type' => 'int',
                 'rules' => ['required', 'integer', 'min:0', 'max:500'],
             ],
+            'offline.articles' => [
+                'label' => 'Articles kept for offline reading',
+                'help' => 'The installed app keeps this many of the newest unread articles on each device, refreshed whenever it is opened online. Set to 0 to keep none.',
+                'type' => 'int',
+                'rules' => ['required', 'integer', 'min:0', 'max:200'],
+            ],
             'import.spacing_seconds' => [
                 'label' => 'Import spacing (seconds)',
                 'help' => 'Gap between extraction jobs queued by a Pocket import, so a large import fetches gently.',

@@ -42,6 +42,9 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Drop the offline copies of articles (and the service worker
+        // holding them) from this browser. The logout form also clears
+        // them before submitting, for browsers that ignore this header.
+        return redirect('/')->header('Clear-Site-Data', '"cache", "storage"');
     }
 }

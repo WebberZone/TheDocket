@@ -78,6 +78,7 @@ class SettingsTest extends TestCase
             'fetch_tries' => (string) config('docket.fetch.tries'),
             'fetch_backoff' => implode(', ', config('docket.fetch.backoff')),
             'images_max_per_item' => (string) config('docket.images.max_per_item'),
+            'offline_articles' => (string) config('docket.offline.articles'),
             'import_spacing_seconds' => (string) config('docket.import.spacing_seconds'),
         ], $overrides);
     }
