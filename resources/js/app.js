@@ -5,6 +5,7 @@
 import Alpine from '@alpinejs/csp';
 import behaviours from './behaviours';
 import bulkSelection from './bulk-selection';
+import offline from './offline';
 import reader from './reader';
 
 window.Alpine = Alpine;
@@ -13,5 +14,6 @@ Alpine.data('bulkSelection', bulkSelection);
 Alpine.data('reader', reader);
 
 behaviours(document);
+offline(document);
 
 Alpine.start();

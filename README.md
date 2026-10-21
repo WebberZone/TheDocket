@@ -30,6 +30,9 @@ Laravel 13 · PHP 8.3 · SQLite · Breeze (Blade) · Tailwind · Alpine.
 - **Reader**: serif or sans, adjustable size, light, sepia or dark;
   remembered per browser. Your scroll position is saved as you read and
   restored when you come back, on any device.
+- **Offline reading**: the installed app keeps the newest unread articles
+  (30 by default), with their stored images, on each device, and refreshes
+  them whenever it is opened online.
 - **Pocket import**: upload Pocket's export CSV, or use
   `php artisan docket:import-pocket`. Dates, tags and unread/archive status
   are kept; extraction is queued at a gentle rate. Re-running it is safe.
@@ -92,6 +95,24 @@ for a new item and `200` when the link was already saved, with the item
 `422` with Laravel's usual `errors` object. The API is limited to 60
 requests a minute. Tokens are Laravel Sanctum personal access tokens; only
 a hash is stored, and revoking one on the Settings page stops it at once.
+
+## Reading offline
+
+Install Docket on the device (**Add to Home screen** on Android or iOS, or
+the install button in a desktop browser) and open it while online. Every
+time a logged-in page opens with a connection, the service worker updates
+its copies of the newest unread articles (**Settings → Articles kept for
+offline reading**, 30 by default; 0 keeps none) and their stored images.
+
+Offline, those articles open as normal from the list on the offline page or
+from any link to them. Your place in an article is remembered and sent when
+the connection comes back. Archiving, favourites, tags and search need a
+connection. Images that were never downloaded to the server (past the
+per-article limits, or SVG) stay remote and don't show offline.
+
+An article leaves the device at the next sync once it is archived or
+deleted, or drops out of the newest unread. Logging out deletes every
+offline copy in that browser.
 
 ## Coming from Pocket
 

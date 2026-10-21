@@ -84,6 +84,15 @@ return [
     ],
 
     /*
+    | Offline reading: the installed app keeps this many of the newest unread
+    | articles, with their stored images, on the device, and refreshes them
+    | whenever it is opened online. 0 turns it off and clears the copies.
+    */
+    'offline' => [
+        'articles' => 30,
+    ],
+
+    /*
     | Reading time is word count divided by this, rounded up.
     */
     'words_per_minute' => 230,

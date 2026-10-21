@@ -5,15 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Docket — offline</title>
     <style>
-        body { font-family: -apple-system, system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #334155; }
-        main { text-align: center; padding: 2rem; max-width: 28rem; }
-        h1 { font-size: 1.25rem; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #f8fafc; color: #334155; }
+        main { padding: 2rem 1.25rem; max-width: 40rem; margin: 0 auto; }
+        h1 { font-size: 1.25rem; margin: 0 0 0.5rem; color: #0f172a; }
+        p { line-height: 1.5; }
+        ul { list-style: none; padding: 0; margin: 1.5rem 0 0; }
+        li { border-top: 1px solid #e2e8f0; }
+        li a { display: block; padding: 0.875rem 0; color: #0f172a; text-decoration: none; }
+        li a:hover strong { text-decoration: underline; }
+        li span { display: block; margin-top: 0.25rem; font-size: 0.875rem; color: #64748b; }
+        .muted { font-size: 0.875rem; color: #64748b; }
     </style>
 </head>
 <body>
     <main>
         <h1>You&rsquo;re offline</h1>
-        <p>Docket needs a connection. Anything you were sharing hasn&rsquo;t been saved yet &mdash; share it again when you&rsquo;re back online.</p>
+        <p id="summary">Docket needs a connection for everything except the articles saved on this device. Anything you were sharing hasn&rsquo;t been saved yet &mdash; share it again when you&rsquo;re back online.</p>
+        <ul id="articles"></ul>
+        <p id="synced" class="muted"></p>
     </main>
+    <script src="/offline.js"></script>
 </body>
 </html>

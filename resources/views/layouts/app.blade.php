@@ -75,7 +75,7 @@
                         <p class="truncate text-sm font-medium text-white">{{ Auth::user()->name }}</p>
                         <div class="flex gap-3 text-xs text-slate-400">
                             <a href="{{ route('profile.edit') }}" class="hover:text-white">Profile</a>
-                            <form method="POST" action="{{ route('logout') }}">
+                            <form method="POST" action="{{ route('logout') }}" data-clears-offline>
                                 @csrf
                                 <button type="submit" class="hover:text-white">Log out</button>
                             </form>
@@ -124,7 +124,7 @@
             <div class="mt-3 flex items-center justify-between border-t border-slate-800 px-3 pt-3 text-sm">
                 <a href="{{ route('profile.edit') }}"
                     class="text-slate-300 hover:text-white">{{ Auth::user()->name }}</a>
-                <form method="POST" action="{{ route('logout') }}">
+                <form method="POST" action="{{ route('logout') }}" data-clears-offline>
                     @csrf
                     <button type="submit" class="text-slate-400 hover:text-white">Log out</button>
                 </form>

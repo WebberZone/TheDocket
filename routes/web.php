@@ -7,6 +7,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\ItemImageController;
 use App\Http\Controllers\ItemStateController;
+use App\Http\Controllers\OfflineController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SaveController;
 use App\Http\Controllers\SettingsController;
@@ -41,6 +42,9 @@ Route::middleware('auth')->group(
         Route::get('items/{item}/images/{filename}', ItemImageController::class)
             ->where('filename', ImageLocaliser::FILENAME_PATTERN)
             ->name('items.image');
+
+        // What the service worker keeps on the device for offline reading.
+        Route::get('offline/articles', OfflineController::class)->name('offline.articles');
 
         // Bookmarklet and PWA share target. GET, because both arrive as a
         // plain navigation from another page or app.
