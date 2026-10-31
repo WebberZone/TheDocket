@@ -67,6 +67,18 @@ class WebInstallerTest extends TestCase
             ->assertSee('Continue');
     }
 
+    public function test_optional_note_only_shows_when_an_optional_check_fails(): void
+    {
+        $check = fn (bool $ok, bool $blocking): array => ['label' => 'Check', 'ok' => $ok, 'blocking' => $blocking, 'hint' => 'Hint'];
+        $note = 'are optional and can be sorted';
+
+        $this->view('install.requirements', ['checks' => [$check(true, true), $check(true, false)], 'canProceed' => true])
+            ->assertDontSee($note);
+
+        $this->view('install.requirements', ['checks' => [$check(true, true), $check(false, false)], 'canProceed' => true])
+            ->assertSee($note);
+    }
+
     public function test_setup_form_renders_when_not_installed(): void
     {
         $this->get('/install/setup')

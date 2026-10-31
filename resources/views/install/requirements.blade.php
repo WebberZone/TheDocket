@@ -29,10 +29,12 @@
     </ul>
 
     @if ($canProceed)
-        <p>
-            Items marked <strong>Later</strong> are optional and can be sorted
-            out after installation.
-        </p>
+        @if (collect($checks)->contains(fn ($check) => ! $check['ok'] && ! $check['blocking']))
+            <p>
+                Items marked <strong>Later</strong> are optional and can be sorted
+                out after installation.
+            </p>
+        @endif
         <div class="actions">
             {{-- Relative path, not route(): before .env exists the app
                  defaults to APP_ENV=production and forces https URLs,
