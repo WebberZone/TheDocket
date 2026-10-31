@@ -108,6 +108,32 @@ class Installer
     }
 
     /**
+     * The token that authorises the web cron URL (GET /api/cron/{token})
+     * for hosts that cannot run cron at all. Created lazily like the
+     * setup code; unlike it, markInstalled() leaves this file alone — the
+     * URL keeps working after installation.
+     */
+    public function cronToken(): string
+    {
+        $path = $this->statePath('cron-token');
+
+        if (! is_file($path)) {
+            $this->ensureStateDirectory();
+            file_put_contents($path, Str::random(40)."\n");
+            @chmod($path, 0600);
+        }
+
+        return trim((string) file_get_contents($path));
+    }
+
+    public function regenerateCronToken(): string
+    {
+        @unlink($this->statePath('cron-token'));
+
+        return $this->cronToken();
+    }
+
+    /**
      * The single cron line a deployment needs: it runs the scheduler every
      * minute, and the scheduler in turn drains the queue, beats the
      * heartbeat and runs the backups.

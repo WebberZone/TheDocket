@@ -82,6 +82,12 @@ class FetchItemContent implements ShouldQueue
         HtmlSanitiser $sanitiser,
         ImageLocaliser $images,
     ): void {
+        // Run after the response on hosts without a queue: FPM would
+        // otherwise cut the fetch at max_execution_time and a browser
+        // disconnect would kill it. Harmless under the queue worker.
+        @set_time_limit($this->timeout + 30);
+        ignore_user_abort(true);
+
         $item = $this->item;
         $item->forceFill(['fetch_attempts' => $item->fetch_attempts + 1])->saveQuietly();
 

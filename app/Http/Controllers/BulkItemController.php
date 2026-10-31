@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FetchStatus;
-use App\Jobs\FetchItemContent;
 use App\Models\Item;
 use App\Models\Tag;
+use App\Services\FetchDispatcher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -92,6 +92,6 @@ class BulkItemController extends Controller
             'fetch_attempts' => 0,
         ])->save();
 
-        FetchItemContent::dispatch($item);
+        app(FetchDispatcher::class)->dispatch($item);
     }
 }

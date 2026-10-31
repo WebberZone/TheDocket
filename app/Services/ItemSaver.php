@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\ItemSource;
 use App\Enums\ItemStatus;
 use App\Exceptions\InvalidUrlException;
-use App\Jobs\FetchItemContent;
 use App\Models\Item;
 use App\Models\Tag;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -60,7 +59,7 @@ class ItemSaver
 
         $item->attachTagNames($tagNames);
 
-        FetchItemContent::dispatch($item);
+        app(FetchDispatcher::class)->dispatch($item);
 
         return new SaveResult($item, true);
     }

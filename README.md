@@ -223,24 +223,41 @@ The setup code, if you install in the browser, is printed by
 `php artisan docket:setup-code` and also lives in
 `storage/app/install/setup-code`.
 
-### The one cron line
+### Background tasks (cron)
 
-Whatever route you took, Docket needs a single cron entry:
+Docket works with no cron at all: articles you save are fetched there and
+then, after the response. The scheduler only adds the background work —
+backups, Pocket imports and bulk refetches — and there are two ways to
+drive it.
+
+**Option 1 (recommended): one cron line**
 
 ```
 * * * * * cd /var/www/docket && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-(Adjust the path and PHP binary — the installer's completion page shows
-the exact line for your server.) It runs the scheduler every minute,
-which fetches saved pages, beats the heartbeat and runs the backups. No
-systemd worker is needed. For instant fetches you may additionally run
-`php artisan queue:work` under systemd/supervisor and set
-`DOCKET_QUEUE_VIA_SCHEDULER=false` in `.env` — entirely optional.
+(Adjust the path and PHP binary — the installer's completion page and
+Settings → Background tasks show the exact line for your server.) It runs
+the scheduler every minute, which drains the queue, beats the heartbeat
+and runs the backups. No systemd worker is needed. For instant fetches
+you may additionally run `php artisan queue:work` under
+systemd/supervisor and set `DOCKET_QUEUE_VIA_SCHEDULER=false` in `.env` —
+entirely optional.
 
-If the cron is missing or stops, a warning banner shows at the top of
-every page until it runs again; Settings → Info shows when the scheduler
-last ran.
+**Option 2: no cron on your host?**
+
+Settings → Background tasks shows a secret **cron URL**. Point a free
+web-cron service (cron-job.org, UptimeRobot, or your host's "URL cron")
+at it once a minute; each hit drains the queue and runs the scheduler.
+Keep the URL secret — anyone who has it can trigger your tasks; the
+Regenerate button invalidates it instantly. Caveat, as with FreeScout:
+on hosts that disable `proc_open`/`exec`, the scheduler's own
+sub-processes can't run — the queue still drains (it runs inside the web
+request), but backups can fail there.
+
+If off-site backups are configured and the scheduler stops running, a
+warning banner appears at the top of every page until it runs again;
+Settings → Background tasks always shows the current status.
 
 ### The setup code
 
@@ -275,9 +292,11 @@ are kept), then open **Tools** and run **Run migrations** followed by
 
 ## Troubleshooting
 
-- **Warning banner about background tasks** — the scheduler cron isn't
-  running. Add the cron line exactly as shown in the banner; the warning
-  clears within a minute.
+- **Warning banner about backups not running** — off-site backups are
+  configured but the scheduler cron has stopped. Add the cron line or set
+  up the cron URL; the warning clears within a minute of it running.
+- **Imports or refetches never start** — background tasks aren't running:
+  Settings → Background tasks has the cron line and the cron URL.
 - **500 errors** — read `storage/logs/laravel.log`; wrong file ownership
   is the usual cause (`storage/`, `bootstrap/cache/` and `database/` must
   be writable by the web user).
@@ -285,8 +304,8 @@ are kept), then open **Tools** and run **Run migrations** followed by
   SQLite was built without FTS5; a different PHP build is needed.
 - **Blank page or 404 on every URL** — the document root is the app
   folder rather than `public/`; fix the vhost/panel setting.
-- **Pages save but never get content** — check the scheduler banner and
-  `php artisan docket:check-requirements`.
+- **Pages save but never get content** — check Settings → Background
+  tasks and `php artisan docket:check-requirements`.
 
 ## Backups (spatie/laravel-backup)
 

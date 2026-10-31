@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SettingsRequest;
+use App\Services\Installer;
 use App\Services\SchedulerHeartbeat;
 use App\Services\Settings;
 use Illuminate\Http\RedirectResponse;
@@ -23,8 +24,13 @@ class SettingsController extends Controller
     public function edit(Request $request): View
     {
         $lastBeat = app(SchedulerHeartbeat::class)->lastBeat();
+        $installer = app(Installer::class);
 
         return view('settings.edit', [
+            'schedulerHealthy' => app(SchedulerHeartbeat::class)->isHealthy(),
+            'schedulerLastBeat' => $lastBeat,
+            'cronLine' => $installer->cronLine(),
+            'cronUrl' => route('cron.run', $installer->cronToken()),
             'fields' => Settings::fields(),
             'settings' => $this->settings,
             'bookmarklet' => self::bookmarklet(route('save.bookmarklet')),
@@ -60,6 +66,16 @@ class SettingsController extends Controller
         }
 
         return Redirect::route('settings.edit')->with('status', 'Settings updated successfully.');
+    }
+
+    /**
+     * New web cron URL: the old token stops working at once.
+     */
+    public function regenerateCronToken(): RedirectResponse
+    {
+        app(Installer::class)->regenerateCronToken();
+
+        return Redirect::route('settings.edit')->with('status', 'The cron URL was regenerated. Update any pinger using the old one.');
     }
 
     /**

@@ -142,20 +142,23 @@
             @endisset
 
             <main>
-                @php($schedulerHealthy = app(\App\Services\SchedulerHeartbeat::class)->isHealthy())
-                @if (! $schedulerHealthy || session('status') || session('error'))
+                {{-- Every-page warning only when backups would silently
+                     rot: without an off-site bucket configured, the
+                     Settings page carries the notice instead. --}}
+                @php($backupsAtRisk = ! app(\App\Services\SchedulerHeartbeat::class)->isHealthy() && filled(config('filesystems.disks.offsite.bucket')))
+                @if ($backupsAtRisk || session('status') || session('error'))
                     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 space-y-4">
-                        @unless ($schedulerHealthy)
+                        @if ($backupsAtRisk)
                             <div class="p-4 rounded-md bg-amber-50 border border-amber-200">
                                 <p class="text-sm text-amber-800">
-                                    {{ __('Background tasks are not running: saved pages are not fetched and backups do not run. Add this one cron line on your server, as the user that runs PHP:') }}
+                                    {{ __('Off-site backups are not running: the scheduler cron has not run recently. Saved pages are still fetched, but your backups stopped. Add this cron line on your server:') }}
                                 </p>
                                 <code class="mt-2 block rounded bg-amber-100 px-3 py-2 text-xs text-amber-900 break-all">{{ app(\App\Services\Installer::class)->cronLine() }}</code>
                                 <p class="mt-2 text-xs text-amber-700">
-                                    {{ __('The warning disappears within a minute of the cron first running.') }}
+                                    {{ __('The warning disappears within a minute of the cron running. The Settings page also offers a cron URL for hosts without crontab access.') }}
                                 </p>
                             </div>
-                        @endunless
+                        @endif
                         @if (session('status'))
                             <x-alert />
                         @endif

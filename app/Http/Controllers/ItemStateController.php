@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FetchStatus;
-use App\Jobs\FetchItemContent;
 use App\Models\Item;
+use App\Services\FetchDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,7 +58,7 @@ class ItemStateController extends Controller
             'fetch_attempts' => 0,
         ])->save();
 
-        FetchItemContent::dispatch($item);
+        app(FetchDispatcher::class)->dispatch($item);
 
         return $this->respond($request, $item, 'Fetching the article again.');
     }

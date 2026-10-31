@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Services\PocketImporter;
+use App\Services\SchedulerHeartbeat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -20,6 +21,7 @@ class ImportController extends Controller
         return view('import.index', [
             'itemCount' => Item::query()->count(),
             'maxKb' => (int) config('docket.import.max_kb'),
+            'schedulerHealthy' => app(SchedulerHeartbeat::class)->isHealthy(),
         ]);
     }
 

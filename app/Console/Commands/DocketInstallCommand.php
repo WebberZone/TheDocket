@@ -222,7 +222,8 @@ class DocketInstallCommand extends Command
         }
 
         $steps[] = 'Serve the app: point your web server at public/ (or run: php artisan serve)';
-        $steps[] = 'Add this one cron line (fetches saved pages, runs backups): '.$installer->cronLine();
+        $steps[] = 'Recommended: add this cron line (backups, imports, bulk refetches): '.$installer->cronLine();
+        $steps[] = 'No crontab? The Settings page shows a secret cron URL to ping once a minute (e.g. via cron-job.org). Docket works without either — articles are fetched when you save them.';
         $steps[] = 'Optional off-site backups: fill in the BACKUP_* keys in .env (S3-compatible bucket)';
         $steps[] = 'Optional: for instant fetches, run a dedicated queue worker (php artisan queue:work under systemd/supervisor) and set DOCKET_QUEUE_VIA_SCHEDULER=false';
         $steps[] = 'Coming from Pocket? Import your export: php artisan docket:import-pocket /path/to/part_000000.csv';

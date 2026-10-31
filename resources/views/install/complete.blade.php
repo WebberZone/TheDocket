@@ -4,25 +4,27 @@
     <h2>Docket is installed</h2>
     <p>
         Your account <strong>{{ $email }}</strong> is ready and the installer
-        is now disabled. One thing left to do on the server:
+        is now disabled. Docket works as it is — articles are fetched when
+        you save them — but backups, Pocket imports and bulk refetches need
+        background tasks set up. Two options, either of which is fine:
     </p>
 
     <ol class="steps">
         <li>
             <p>
-                <strong>Add this one cron line</strong> (in your control
-                panel's Cron Jobs section, or with <code>crontab -e</code>
-                over SSH). It fetches saved pages, runs backups and keeps
-                Docket's housekeeping going:
+                <strong>Recommended: add this cron line</strong> (your control
+                panel's Cron Jobs, or <code>crontab -e</code> over SSH):
             </p>
             <div class="cron-line">
                 <code id="docket-cron-line">{{ $cronLine }}</code>
                 <button type="button" class="copy-button" data-copy-target="#docket-cron-line">Copy</button>
             </div>
-            <p class="hint">
-                Until it first runs, a warning banner shows at the top of
-                every page. It disappears within a minute of the cron
-                running.
+        </li>
+        <li>
+            <p>
+                <strong>No crontab access?</strong> The Settings page shows a
+                secret <strong>cron URL</strong> — point a free web-cron
+                service (e.g. cron-job.org) at it once a minute.
             </p>
         </li>
 

@@ -7,6 +7,7 @@
  *   <select data-autosubmit>                 submit the form on change
  *   <input data-select-on-click>             select the text when clicked
  *   <a data-bookmarklet-hint="Drag me…">     explain instead of navigating
+ *   <button data-copy-target="#id">          copy that element's value/text to the clipboard
  */
 export default function behaviours(root) {
     root.addEventListener('submit', (event) => {
@@ -38,6 +39,21 @@ export default function behaviours(root) {
         if (bookmarklet instanceof HTMLElement) {
             event.preventDefault();
             window.alert(bookmarklet.dataset.bookmarkletHint);
+        }
+
+        const copyButton = target?.closest('[data-copy-target]');
+        if (copyButton instanceof HTMLElement) {
+            const source = document.querySelector(copyButton.dataset.copyTarget);
+            const text = source instanceof HTMLInputElement || source instanceof HTMLTextAreaElement
+                ? source.value
+                : source?.textContent?.trim();
+            if (text) {
+                const label = copyButton.textContent;
+                navigator.clipboard?.writeText(text).then(() => {
+                    copyButton.textContent = 'Copied';
+                    setTimeout(() => { copyButton.textContent = label; }, 2000);
+                });
+            }
         }
     });
 }

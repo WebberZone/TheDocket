@@ -59,14 +59,25 @@ class BackgroundTasksTest extends TestCase
         $this->assertFalse($this->heartbeat()->isHealthy());
     }
 
-    public function test_the_dashboard_warns_until_the_scheduler_first_runs(): void
+    public function test_the_banner_only_shows_when_backups_are_configured(): void
     {
         $user = User::factory()->create();
+
+        // Unhealthy scheduler, but no off-site bucket: notice lives on
+        // Settings instead, so no every-page banner.
+        config(['filesystems.disks.offsite.bucket' => null]);
 
         $this->actingAs($user)
             ->get('/')
             ->assertOk()
-            ->assertSee('Background tasks are not running')
+            ->assertDontSee('backups are not running');
+
+        config(['filesystems.disks.offsite.bucket' => 'my-backups']);
+
+        $this->actingAs($user)
+            ->get('/')
+            ->assertOk()
+            ->assertSee('Off-site backups are not running')
             ->assertSee('schedule:run');
 
         $this->heartbeat()->beat();
@@ -74,7 +85,7 @@ class BackgroundTasksTest extends TestCase
         $this->actingAs($user)
             ->get('/')
             ->assertOk()
-            ->assertDontSee('Background tasks are not running');
+            ->assertDontSee('backups are not running');
     }
 
     /**
@@ -155,6 +166,45 @@ class BackgroundTasksTest extends TestCase
         $this->assertTrue(
             $events->contains(fn ($event): bool => is_string($event->command) && str_contains($event->command, 'backup:run')),
         );
+    }
+
+    public function test_the_settings_page_shows_the_notice_and_cron_options(): void
+    {
+        app(Installer::class)->markInstalled();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/settings')
+            ->assertOk()
+            ->assertSee('Background tasks')
+            ->assertSee('Not running')
+            ->assertSee('cron line')
+            ->assertSee('cron URL')
+            ->assertSee('/api/cron/');
+
+        $this->heartbeat()->beat();
+
+        $this->actingAs($user)
+            ->get('/settings')
+            ->assertOk()
+            ->assertDontSee('Not running');
+    }
+
+    public function test_the_import_page_warns_when_the_scheduler_is_down(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/import')
+            ->assertOk()
+            ->assertSee('background tasks are not running');
+
+        $this->heartbeat()->beat();
+
+        $this->actingAs($user)
+            ->get('/import')
+            ->assertOk()
+            ->assertDontSee('background tasks are not running');
     }
 
     public function test_the_cron_line_targets_the_app_and_the_cli_php(): void

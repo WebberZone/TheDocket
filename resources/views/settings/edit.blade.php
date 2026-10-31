@@ -144,6 +144,70 @@
                 </div>
             </div>
 
+            {{-- Background tasks --}}
+            <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
+                <div class="max-w-xl">
+                    <section>
+                        <header>
+                            <h2 class="text-lg font-medium text-slate-900">{{ __('Background tasks') }}</h2>
+                            <p class="mt-1 text-sm text-slate-600">
+                                {{ __('Docket works without any of this: articles are fetched when you save them. The scheduler additionally runs backups, Pocket imports and bulk refetches.') }}
+                            </p>
+                        </header>
+
+                        <div class="mt-4 space-y-4">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">{{ __('Status') }}</h3>
+                                @if ($schedulerHealthy)
+                                    <p class="mt-1 text-sm text-slate-600">
+                                        {{ __('Running — last ran :when.', ['when' => $schedulerLastBeat?->diffForHumans()]) }}
+                                    </p>
+                                @else
+                                    <div class="mt-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                                        <p class="text-sm text-amber-800">
+                                            {{ __('Not running. Articles are still fetched when you save them, but backups, Pocket imports and bulk refetches need one of the two options below.') }}
+                                        </p>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">{{ __('Option 1 — cron line (recommended)') }}</h3>
+                                <p class="mt-1 text-sm text-slate-600">
+                                    {{ __('Add this to your server\'s crontab or your hosting control panel\'s Cron Jobs, as the user that runs PHP:') }}
+                                </p>
+                                <div class="mt-2 flex items-start gap-2">
+                                    <input id="cron-line" type="text" readonly value="{{ $cronLine }}" data-select-on-click
+                                        class="block w-full rounded-md border-slate-300 font-mono text-xs shadow-sm">
+                                    <button type="button" data-copy-target="#cron-line"
+                                        class="shrink-0 rounded-md bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-300">{{ __('Copy') }}</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">{{ __('Option 2 — cron URL (hosts without crontab)') }}</h3>
+                                <p class="mt-1 text-sm text-slate-600">
+                                    {{ __('Point a free web-cron service (e.g. cron-job.org) or your host\'s "URL cron" at this address, once a minute. Keep it secret — anyone with it can trigger your tasks.') }}
+                                </p>
+                                <div class="mt-2 flex items-start gap-2">
+                                    <input id="cron-url" type="text" readonly value="{{ $cronUrl }}" data-select-on-click
+                                        class="block w-full rounded-md border-slate-300 font-mono text-xs shadow-sm">
+                                    <button type="button" data-copy-target="#cron-url"
+                                        class="shrink-0 rounded-md bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-300">{{ __('Copy') }}</button>
+                                </div>
+                                <form method="post" action="{{ route('settings.cron-token') }}" class="mt-3"
+                                    data-confirm="{{ __('Regenerate the cron URL? Any pinger using the old one will stop working.') }}">
+                                    @csrf
+                                    <button type="submit" class="text-sm text-slate-600 underline hover:text-slate-900">
+                                        {{ __('Regenerate the cron URL') }}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
             {{-- Read-only invariants --}}
             <div class="p-4 sm:p-8 bg-white shadow sm:rounded-lg">
                 <div class="max-w-xl">

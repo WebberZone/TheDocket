@@ -63,6 +63,7 @@ Route::middleware('auth')->group(
 
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::patch('settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::post('settings/cron-token', [SettingsController::class, 'regenerateCronToken'])->name('settings.cron-token');
         Route::post('settings/tokens', [ApiTokenController::class, 'store'])->name('tokens.store');
         Route::delete('settings/tokens/{token}', [ApiTokenController::class, 'destroy'])->whereNumber('token')->name('tokens.destroy');
 

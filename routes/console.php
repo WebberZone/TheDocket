@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\Schedule;
 | queue:work exits once the queue is empty (and at --max-time either way),
 | so this is a reaper, not a daemon; withoutOverlapping keeps a slow run
 | from piling up. Set DOCKET_QUEUE_VIA_SCHEDULER=false when a dedicated
-| worker service runs instead.
+| worker service runs instead. It is registered only under a real CLI:
+| its runInBackground needs proc_open, which shared hosts often disable —
+| the web cron URL drains the queue inside the web request instead.
 |
 | Prune old backups first, then take the new one, then verify the newest
 | backup is fresh enough (emails if not).
@@ -37,7 +39,7 @@ $installed = is_file(rtrim((string) config('docket.install.state_path'), DIRECTO
 Schedule::call(fn () => app(SchedulerHeartbeat::class)->beat())->everyMinute();
 
 if ($installed) {
-    if (config('docket.queue.via_scheduler')) {
+    if (config('docket.queue.via_scheduler') && app()->runningInConsole()) {
         Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=300 --max-time=55')
             ->everyMinute()
             ->withoutOverlapping(10)

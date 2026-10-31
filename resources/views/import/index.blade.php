@@ -11,8 +11,15 @@
                     {{ __('Upload the CSV from Pocket\'s export (columns: title, url, time_added, tags, status). Each link keeps its saved date, tags and unread or archived status. Importing the same file again is safe: links already here are skipped, apart from gaining any tags they were missing.') }}
                 </p>
                 <p class="mt-2 text-sm text-slate-600">
-                    {{ __('Articles are fetched in the background, one every :seconds seconds, so a big import takes a while to fill in. Keep the queue worker running.', ['seconds' => settings('import.spacing_seconds')]) }}
+                    {{ __('Articles are fetched in the background, one every :seconds seconds, so a big import takes a while to fill in.', ['seconds' => settings('import.spacing_seconds')]) }}
                 </p>
+                @unless ($schedulerHealthy)
+                    <div class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                        <p class="text-sm text-amber-800">
+                            {{ __('Heads up: background tasks are not running on this server, so imported articles will not be fetched. Set up the cron line or the cron URL on the Settings page first.') }}
+                        </p>
+                    </div>
+                @endunless
 
                 <form method="post" action="{{ route('import.store') }}" enctype="multipart/form-data" class="mt-5 space-y-4">
                     @csrf
