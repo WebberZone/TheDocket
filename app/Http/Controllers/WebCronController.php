@@ -33,7 +33,9 @@ class WebCronController extends Controller
         }
 
         app()->terminating(function (): void {
-            if (! Cache::lock('docket:web-cron', 300)->get()) {
+            $lock = Cache::lock('docket:web-cron', 300);
+
+            if (! $lock->get()) {
                 return;
             }
 
@@ -52,6 +54,12 @@ class WebCronController extends Controller
                 Artisan::call('schedule:run');
             } catch (\Throwable $e) {
                 Log::warning('Web cron run failed: '.$e->getMessage());
+            } finally {
+                // Release once the work is done — the lock's 300s TTL
+                // only guards a runaway run; holding it the whole time
+                // would make every ping for the next five minutes a
+                // no-op.
+                $lock->release();
             }
         });
 

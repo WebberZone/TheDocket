@@ -89,6 +89,23 @@ class WebCronTest extends TestCase
         $this->assertSame(FetchStatus::Fetched, $item->fetch_status, (string) $item->fetch_error);
     }
 
+    public function test_back_to_back_pings_each_do_the_work(): void
+    {
+        // The overlap lock is released when the run finishes — a ping
+        // during an active run skips, the next ping must not.
+        app(Installer::class)->markInstalled();
+
+        $this->get($this->cronUrl())->assertOk();
+        $firstBeat = filemtime($this->heartbeatDir.'/heartbeat');
+
+        // Second ping straight after: must still beat and run, not be
+        // skipped because the lock is still held.
+        touch($this->heartbeatDir.'/heartbeat', time() - 10);
+        $this->get($this->cronUrl())->assertOk();
+        clearstatcache();
+        $this->assertGreaterThan($firstBeat - 10, filemtime($this->heartbeatDir.'/heartbeat'));
+    }
+
     public function test_regenerating_the_token_invalidates_the_old_url(): void
     {
         app(Installer::class)->markInstalled();
@@ -110,15 +127,15 @@ class WebCronTest extends TestCase
     public function test_the_route_is_throttled_and_sets_no_session_cookie(): void
     {
         app(Installer::class)->markInstalled();
-        $url = $this->cronUrl();
 
+        // Wrong tokens still count toward the limit but skip the work.
         for ($i = 0; $i < 10; $i++) {
-            $this->get($url)->assertOk();
+            $this->get('/api/cron/not-the-token')->assertNotFound();
         }
 
-        $this->get($url)->assertStatus(429);
+        $this->get('/api/cron/not-the-token')->assertStatus(429);
 
-        $response = $this->get('/api/cron/not-the-token');
+        $response = $this->get($this->cronUrl());
         $this->assertEmpty($response->headers->getCookies());
     }
 }
