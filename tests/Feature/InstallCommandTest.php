@@ -51,6 +51,7 @@ class InstallCommandTest extends TestCase
             '--name' => 'Jane Doe',
             '--email' => 'jane@example.com',
             '--password' => 'super-secret-99',
+            '--timezone' => 'UTC',
         ])->assertSuccessful();
 
         $user = User::query()->where('email', 'jane@example.com')->firstOrFail();
@@ -64,7 +65,33 @@ class InstallCommandTest extends TestCase
         $this->assertStringContainsString('DOCKET_USER_NAME="Jane Doe"', $env);
         $this->assertStringContainsString('DOCKET_USER_EMAIL=jane@example.com', $env);
         $this->assertMatchesRegularExpression('/^APP_KEY="?base64:/m', $env);
+        $this->assertStringContainsString('APP_TIMEZONE=UTC', $env);
         $this->assertStringNotContainsString('super-secret-99', $env);
+    }
+
+    public function test_the_timezone_option_is_written_to_env(): void
+    {
+        $this->artisan('docket:install', [
+            '--url' => 'https://docket.example.com',
+            '--name' => 'Jane Doe',
+            '--email' => 'jane@example.com',
+            '--password' => 'super-secret-99',
+            '--timezone' => 'Europe/Dublin',
+        ])->assertSuccessful();
+
+        $this->assertStringContainsString('APP_TIMEZONE=Europe/Dublin', $this->envContents());
+    }
+
+    public function test_an_invalid_timezone_is_rejected(): void
+    {
+        $this->artisan('docket:install', [
+            '--email' => 'jane@example.com',
+            '--password' => 'super-secret-99',
+            '--timezone' => 'Not/AZone',
+            '--no-interaction' => true,
+        ])->assertFailed();
+
+        $this->assertSame(0, User::query()->count());
     }
 
     public function test_non_interactive_install_generates_a_password(): void
@@ -85,6 +112,7 @@ class InstallCommandTest extends TestCase
             ->expectsQuestion('What URL will Docket be served from?', 'https://docket.example.com')
             ->expectsQuestion('Your name', 'Sam Smith')
             ->expectsQuestion('Your email (used to log in)', 'sam@example.com')
+            ->expectsQuestion('Timezone (e.g. Europe/London)', 'Europe/Lisbon')
             ->expectsQuestion('Choose a login password', 'another-secret-1')
             ->assertSuccessful();
 
@@ -114,6 +142,7 @@ class InstallCommandTest extends TestCase
             '--name' => 'Jane Doe',
             '--email' => 'jane@example.com',
             '--password' => 'a-brand-new-password',
+            '--timezone' => 'UTC',
             '--force' => true,
         ])->assertSuccessful();
 
@@ -152,6 +181,7 @@ class InstallCommandTest extends TestCase
             '--name' => 'Someone Else',
             '--email' => 'someone@example.com',
             '--password' => 'another-password-1',
+            '--timezone' => 'UTC',
             '--force' => true,
         ])->assertFailed();
 

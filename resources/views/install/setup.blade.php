@@ -25,8 +25,12 @@
         <input type="text" id="setup_code" name="setup_code" required autocomplete="off" spellcheck="false"
                value="{{ $input['setup_code'] ?? '' }}">
         <span class="hint">
-            Proves you control the server. Read it there:
-            <code>cat {{ $codeLocation }}</code>
+            Proves you control the server. The code lives in the file
+            <code>{{ $codeLocation }}</code> inside your Docket folder —
+            open it with your hosting control panel's File Manager
+            (cPanel, Plesk, DirectAdmin), or over SSH with
+            <code>cat {{ $codeLocation }}</code>. If you have shell access,
+            <code>php artisan docket:setup-code</code> prints it too.
         </span>
         @if ($errors->has('setup_code'))
             <p class="field-error">{{ $errors->first('setup_code') }}</p>
@@ -51,6 +55,17 @@
                value="{{ $input['email'] ?? '' }}">
         @if ($errors->has('email'))
             <p class="field-error">{{ $errors->first('email') }}</p>
+        @endif
+
+        <label for="timezone">Timezone</label>
+        <select id="timezone" name="timezone" required data-browser-timezone>
+            @foreach ($timezones as $timezone)
+                <option value="{{ $timezone }}" @selected(($input['timezone'] ?? 'UTC') === $timezone)>{{ $timezone }}</option>
+            @endforeach
+        </select>
+        <span class="hint">Used for dates and scheduled tasks. Your browser's zone is preselected when it is in the list.</span>
+        @if ($errors->has('timezone'))
+            <p class="field-error">{{ $errors->first('timezone') }}</p>
         @endif
 
         <label for="password">Password (minimum 8 characters)</label>

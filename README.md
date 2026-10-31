@@ -136,43 +136,119 @@ they were missing; nothing is duplicated, re-dated or fetched again.
 
 Extraction for new items is queued with a gap between each job (10 seconds
 by default; **Settings → Import spacing**), so a few thousand links take a
-few hours to fill in rather than hammering every site at once. Keep the
-queue worker running until the queue drains. Anything that fails (dead
+few hours to fill in rather than hammering every site at once. The
+scheduler cron drains the queue; nothing else needs running. Anything that fails (dead
 links are common in an old Pocket library) is marked on the item with the
 reason. **Tools → Fetch failed and pending items** (or `php artisan
 docket:refetch`) tries them all again.
 
 ## Installation
 
-Requirements: PHP 8.3+ with `pdo_sqlite` (SQLite built with FTS5, which is
-standard on current Debian, Ubuntu and Homebrew), `mbstring`, `fileinfo`,
-`dom` and `xml`; `intl` and `zip` recommended. Composer and Node 20+.
+Docket aims to be as easy to self-host as a shared-hosting PHP app:
+download, upload, open `/install` on your own domain, add one cron line.
+There is no registration flow — the installer creates the single owner
+account.
 
-Both installers do the same work: create `.env`, generate the app key,
-create the SQLite database, run the migrations and create the single owner
-account. There is no registration flow.
+### Requirements
 
-### Web installer (recommended on a server)
+- A web server (nginx or Apache) serving the `public/` directory
+- PHP 8.3+ (FPM or CGI) with `pdo_sqlite` built with FTS5 (standard on
+  current Debian, Ubuntu and most shared hosts), `mbstring`, `fileinfo`,
+  `dom`, `xml` and `curl`; `intl` and `zip` recommended
+- Composer and Node 20+ are **only** needed when installing from the
+  source branch — the release zip and the `dist` branch come prebuilt
+
+`php artisan docket:check-requirements` prints the full checklist and
+exits non-zero when a required piece is missing.
+
+### A) Shared hosting (release zip)
+
+1. Download `docket-<version>.zip` from the
+   [Releases page](https://github.com/WebberZone/TheDocket/releases)
+   (releases appear from the first tagged release).
+2. Unzip and upload the contents to your hosting, for example into
+   `~/docket/`, with FTP or the control panel's File Manager.
+3. Set the document root to the `public/` folder inside it. On cPanel
+   this is the domain's *Document Root* setting; on Plesk it is
+   *Document root* under Hosting Settings. Pointing the domain at the
+   top-level folder will not work.
+4. Open **`https://your-domain/install`** in your browser. The wizard
+   checks the server, then asks for a setup code. The code lives in
+   `storage/app/install/setup-code` inside your Docket folder — open it
+   in the control panel's File Manager (or `cat` it over SSH).
+5. Fill in the site URL, timezone, your name, email and password.
+6. The last screen shows **one cron line** — add it in your control
+   panel's *Cron Jobs* section (run every minute; paste the command part
+   if the panel asks for schedule and command separately).
+
+### B) VPS — one command
+
+On a fresh Ubuntu or Debian server:
 
 ```sh
-git clone https://github.com/WebberZone/TheDocket.git docket
-cd docket
-composer install --no-dev
-npm ci && npm run build
+curl -fsSL https://raw.githubusercontent.com/WebberZone/TheDocket/master/tools/install.sh -o docket-install.sh
+sudo bash docket-install.sh
 ```
 
-Point your web server at `public/`, then open
-**`https://your-domain/install`**. The wizard checks the server
-requirements, then asks for a setup code, the site URL, your name, email
-and password, and installs.
+It installs nginx, PHP 8.3+ FPM and the dependencies, fetches the code
+(prebuilt `dist` branch when available), writes the nginx vhost, obtains
+a Let's Encrypt certificate, adds the cron line for `www-data`, then
+prints the install URL and setup code. Point your domain's DNS A record
+at the server first. Every prompt has an environment override for
+scripted runs (`DOCKET_DOMAIN`, `DOCKET_PATH`, `DOCKET_HTTPS`,
+`DOCKET_EMAIL`, `DOCKET_YES=1`).
 
-The setup code proves you control the server: anyone can find a fresh
-deployment's `/install`, so it won't create the account without it. Read
-it on the server once the setup page has loaded:
+### C) VPS — manual
 
 ```sh
-cat storage/app/install/setup-code
+git clone https://github.com/WebberZone/TheDocket.git /var/www/docket   # or --branch dist
+cd /var/www/docket
+composer install --no-dev --optimize-autoloader   # not needed on dist
+npm ci && npm run build                           # not needed on dist
 ```
+
+Point nginx (root `public/`, `try_files` to `index.php`) or Apache at the
+site, then either open `https://your-domain/install` or run the console
+installer:
+
+```sh
+php artisan docket:install
+# or fully scripted:
+php artisan docket:install --url=https://docket.example.com \
+    --name="Jane Doe" --email=jane@example.com \
+    --timezone=Europe/London --no-interaction   # omits --password → generates one
+```
+
+The setup code, if you install in the browser, is printed by
+`php artisan docket:setup-code` and also lives in
+`storage/app/install/setup-code`.
+
+### The one cron line
+
+Whatever route you took, Docket needs a single cron entry:
+
+```
+* * * * * cd /var/www/docket && php artisan schedule:run >> /dev/null 2>&1
+```
+
+(Adjust the path and PHP binary — the installer's completion page shows
+the exact line for your server.) It runs the scheduler every minute,
+which fetches saved pages, beats the heartbeat and runs the backups. No
+systemd worker is needed. For instant fetches you may additionally run
+`php artisan queue:work` under systemd/supervisor and set
+`DOCKET_QUEUE_VIA_SCHEDULER=false` in `.env` — entirely optional.
+
+If the cron is missing or stops, a warning banner shows at the top of
+every page until it runs again; Settings → Info shows when the scheduler
+last ran.
+
+### The setup code
+
+The web installer asks for a code before creating your account: anyone
+can stumble on a fresh `/install`, so the code proves you control the
+server. It is created on demand, one per deployment, and retired once
+installation finishes. Find it at `storage/app/install/setup-code`, or
+run `php artisan docket:setup-code`.
 
 The installer only exists while Docket has no account. Once your login
 is created it leaves a marker (`storage/app/install/installed`) and
@@ -181,68 +257,40 @@ can't be read, it answers 503 rather than treating the site as fresh.
 Docket has exactly one account: neither installer, nor `db:seed`, will
 create a second one.
 
-### Console installer
+## Updating
 
-```sh
-git clone https://github.com/WebberZone/TheDocket.git docket
-cd docket
-composer setup      # deps + frontend build + guided php artisan docket:install
+On a git checkout, `tools/update.sh` pulls the newest code, snapshots the
+database first, rebuilds dependencies and assets when not on `dist`,
+migrates, warms the caches and brings the site back up. Add it to cron
+for nightly updates:
+
+```
+15 4 * * * /var/www/docket/tools/update.sh --yes >> /dev/null 2>&1
 ```
 
-The console installer is safe to re-run (`--force`) and never deletes data.
-For scripted installs pass the answers as flags:
+On shared hosting (zip install), upload the newest release zip over the
+top (your `.env`, database and saved images are not in the zip, so they
+are kept), then open **Tools** and run **Run migrations** followed by
+**Clear cache**.
 
-```sh
-php artisan docket:install --url=https://docket.example.com \
-    --name="Jane Doe" --email=jane@example.com --password=... \
-    --no-interaction   # omit --password to have one generated and shown once
-```
+## Troubleshooting
 
-Then, for local use:
-
-```sh
-php artisan serve
-php artisan queue:work   # fetches and extracts saved pages
-```
-
-Development server (app + queue + logs + Vite): `composer dev`.
-
-## Deployment (any small VPS)
-
-1. Nginx + PHP 8.3-FPM, a standard Laravel vhost with the root at
-   `public/`. HTTPS (Let's Encrypt via `certbot --nginx -d your-domain`) is
-   required for the PWA install and share target.
-2. Visit `https://your-domain/install` (or run `php artisan docket:install`)
-   with the real production URL. Then in `.env` set `APP_ENV=production`,
-   `APP_DEBUG=false`, `BACKUP_*` (below) and a real mailer (`MAIL_*`) so
-   backup-failure emails arrive.
-3. `php artisan config:cache && php artisan route:cache && php artisan view:cache`.
-4. Queue worker under systemd:
-
-   ```ini
-   [Service]
-   ExecStart=/usr/bin/php /var/www/docket/artisan queue:work --tries=3 --timeout=300 --max-time=3600
-   Restart=always
-   User=www-data
-   ```
-
-   Keep `--timeout` below the queue's `retry_after` (360 seconds by
-   default, `DB_QUEUE_RETRY_AFTER`), or a slow fetch is handed to a second
-   worker while the first is still running it.
-
-5. One cron entry drives the scheduler (backups, cleanup, monitor):
-
-   ```
-   * * * * * cd /var/www/docket && php artisan schedule:run >> /dev/null 2>&1
-   ```
-
-Without a worker, set `QUEUE_CONNECTION=sync` and pages are fetched during
-the save request instead: slower saves, and a Pocket import will take as
-long as every fetch put together.
+- **Warning banner about background tasks** — the scheduler cron isn't
+  running. Add the cron line exactly as shown in the banner; the warning
+  clears within a minute.
+- **500 errors** — read `storage/logs/laravel.log`; wrong file ownership
+  is the usual cause (`storage/`, `bootstrap/cache/` and `database/` must
+  be writable by the web user).
+- **"SQLite with FTS5" fails the requirements check** — the host's PHP
+  SQLite was built without FTS5; a different PHP build is needed.
+- **Blank page or 404 on every URL** — the document root is the app
+  folder rather than `public/`; fix the vhost/panel setting.
+- **Pages save but never get content** — check the scheduler banner and
+  `php artisan docket:check-requirements`.
 
 ## Backups (spatie/laravel-backup)
 
-Daily at 02:00 server time: the SQLite database is dumped, zipped with
+Daily at 02:00 in APP_TIMEZONE: the SQLite database is dumped, zipped with
 `storage/app/private` (the saved article images), verified and shipped to
 the `offsite` disk, an S3-compatible bucket with a different provider from
 the server (Backblaze B2 or Cloudflare R2). `backup:monitor` emails

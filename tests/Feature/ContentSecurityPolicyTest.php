@@ -122,7 +122,7 @@ class ContentSecurityPolicyTest extends TestCase
         }
     }
 
-    public function test_the_installer_is_covered_and_its_styles_carry_the_nonce(): void
+    public function test_the_installer_is_covered_and_uses_no_inline_styles_or_scripts(): void
     {
         $envDir = sys_get_temp_dir().'/docket-csp-test-'.Str::random(8);
         mkdir($envDir);
@@ -136,7 +136,14 @@ class ContentSecurityPolicyTest extends TestCase
             @rmdir($envDir);
         }
 
-        $this->assertStringContainsString('<style nonce="'.$this->nonce($response).'">', (string) $response->getContent());
+        // style-src has no 'unsafe-inline', so the installer may not use an
+        // inline <style> block — its CSS and JS live in same-origin files.
+        $html = (string) $response->getContent();
+
+        $this->assertDoesNotMatchRegularExpression('/<style[\s>]/i', $html);
+        $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)[^>]*>/i', $html);
+        $this->assertStringContainsString('href="/install.css"', $html);
+        $this->assertStringContainsString('src="/install.js"', $html);
     }
 
     public function test_stored_images_keep_their_own_tighter_policy(): void

@@ -108,6 +108,41 @@ class Installer
     }
 
     /**
+     * The single cron line a deployment needs: it runs the scheduler every
+     * minute, and the scheduler in turn drains the queue, beats the
+     * heartbeat and runs the backups.
+     */
+    public function cronLine(): string
+    {
+        return '* * * * * cd '.$this->app->basePath().' && '.$this->cliPhp().' artisan schedule:run >> /dev/null 2>&1';
+    }
+
+    /**
+     * The PHP binary to put in the cron line. The installer usually runs
+     * under php-fpm, where PHP_BINARY is the FPM binary — useless for
+     * cron — so the versioned and generic CLI names in PHP_BINDIR are
+     * tried first. Under actual CLI, PHP_BINARY is already right.
+     */
+    public function cliPhp(): string
+    {
+        if (PHP_SAPI !== 'cli' || str_contains(basename(PHP_BINARY), 'fpm')) {
+            $versioned = PHP_BINDIR.DIRECTORY_SEPARATOR.'php'.PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
+            $generic = PHP_BINDIR.DIRECTORY_SEPARATOR.'php';
+
+            foreach ([$versioned, $generic] as $candidate) {
+                // is_executable() can warn under open_basedir; silence it.
+                if (@is_executable($candidate)) {
+                    return $candidate;
+                }
+            }
+
+            return 'php';
+        }
+
+        return PHP_BINARY;
+    }
+
+    /**
      * Take the installation lock without waiting: a second installation
      * running at the same moment is told to try again rather than queued
      * behind the first.

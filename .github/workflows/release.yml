@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.2.3)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build zip, release it, update dist
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, xml, mbstring, intl, fileinfo, pdo_sqlite, sqlite3, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build the release
+        run: tools/build-release.sh "${{ steps.version.outputs.version }}"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --generate-notes \
+            "build/docket-${{ steps.version.outputs.version }}.zip" \
+            || gh release upload "v${{ steps.version.outputs.version }}" \
+            "build/docket-${{ steps.version.outputs.version }}.zip" --clobber
+
+      - name: Update the dist branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          work="$(mktemp -d)"
+          cd "$work"
+          git init -q
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+
+          # Fast-forward on top of the existing dist history so
+          # 'git pull --ff-only' works for deployments tracking dist;
+          # orphan the branch when it does not exist yet.
+          if git fetch --depth 1 origin dist; then
+            git checkout -q -b dist FETCH_HEAD
+          else
+            git checkout -q --orphan dist
+          fi
+
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$GITHUB_WORKSPACE/build/docket-${{ steps.version.outputs.version }}/." .
+
+          # dist commits vendor/ and public/build: the built tree lost its
+          # .gitignore, so write one that keeps them tracked.
+          cat > .gitignore <<'EOF'
+          *.log
+          .DS_Store
+          .*/
+          !/.github
+          .env
+          .env.backup
+          .env.production
+          .phpunit.result.cache
+          /auth.json
+          /database/*.sqlite
+          /database/*.sqlite-journal
+          /node_modules
+          /storage/app/tmp
+          /public/hot
+          /public/storage
+          /storage/*.key
+          /storage/pail
+          _ide_helper.php
+          Homestead.json
+          Homestead.yaml
+          Thumbs.db
+          EOF
+
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -qm "dist: build v${{ steps.version.outputs.version }}"
+            git push origin dist
+          else
+            echo "dist already up to date"
+          fi

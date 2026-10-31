@@ -18,6 +18,7 @@ use function Laravel\Prompts\text;
     {--name= : Owner account name}
     {--email= : Owner account email}
     {--password= : Owner account password (auto-generated when omitted non-interactively)}
+    {--timezone= : Application timezone (e.g. Europe/London)}
     {--force : Run even when an account already exists}')]
 #[Description('Install Docket: create .env, generate the app key, migrate the database and create the owner account')]
 class DocketInstallCommand extends Command
@@ -90,6 +91,16 @@ class DocketInstallCommand extends Command
                     : 'Enter a valid email address.',
             ), 'owner@example.com');
 
+        $timezone = $this->option('timezone')
+            ?? $this->promptOr(fn (): string => text(
+                label: 'Timezone (e.g. Europe/London)',
+                default: 'UTC',
+                required: true,
+                validate: fn (string $value): ?string => in_array($value, timezone_identifiers_list(), true)
+                    ? null
+                    : 'Enter a valid timezone identifier.',
+            ), 'UTC');
+
         $plainPassword = $this->option('password') ?? $this->askForPassword();
 
         if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -100,6 +111,12 @@ class DocketInstallCommand extends Command
 
         if (strlen($plainPassword) < 8) {
             $this->components->error('The password must be at least 8 characters.');
+
+            return SymfonyCommand::FAILURE;
+        }
+
+        if (! in_array($timezone, timezone_identifiers_list(), true)) {
+            $this->components->error("'{$timezone}' is not a valid timezone identifier.");
 
             return SymfonyCommand::FAILURE;
         }
@@ -141,17 +158,18 @@ class DocketInstallCommand extends Command
             // to .env: it is hashed straight into the database.
             $installer->writeEnvValues([
                 'APP_URL' => $url,
+                'APP_TIMEZONE' => $timezone,
                 'DOCKET_USER_NAME' => $name,
                 'DOCKET_USER_EMAIL' => $email,
             ]);
-            $this->components->task('.env updated (APP_URL, owner name/email)', fn (): bool => true);
+            $this->components->task('.env updated (APP_URL, APP_TIMEZONE, owner name/email)', fn (): bool => true);
 
             $installer->markInstalled();
         } finally {
             $installer->releaseLock($lock);
         }
 
-        $this->printNextSteps($url, $email);
+        $this->printNextSteps($installer, $url, $email);
 
         return SymfonyCommand::SUCCESS;
     }
@@ -184,7 +202,7 @@ class DocketInstallCommand extends Command
         return $this->input->isInteractive() ? $prompt() : $default;
     }
 
-    protected function printNextSteps(string $url, string $email): void
+    protected function printNextSteps(Installer $installer, string $url, string $email): void
     {
         $this->newLine();
         $this->components->info('Docket is installed.');
@@ -204,9 +222,9 @@ class DocketInstallCommand extends Command
         }
 
         $steps[] = 'Serve the app: point your web server at public/ (or run: php artisan serve)';
-        $steps[] = 'Run a queue worker to fetch saved pages: php artisan queue:work (use systemd/supervisor in production)';
-        $steps[] = 'Add the scheduler cron: * * * * * cd /path/to/docket && php artisan schedule:run >> /dev/null 2>&1';
+        $steps[] = 'Add this one cron line (fetches saved pages, runs backups): '.$installer->cronLine();
         $steps[] = 'Optional off-site backups: fill in the BACKUP_* keys in .env (S3-compatible bucket)';
+        $steps[] = 'Optional: for instant fetches, run a dedicated queue worker (php artisan queue:work under systemd/supervisor) and set DOCKET_QUEUE_VIA_SCHEDULER=false';
         $steps[] = 'Coming from Pocket? Import your export: php artisan docket:import-pocket /path/to/part_000000.csv';
 
         $this->components->bulletList($steps);

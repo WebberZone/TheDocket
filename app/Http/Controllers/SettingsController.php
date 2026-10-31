@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SettingsRequest;
+use App\Services\SchedulerHeartbeat;
 use App\Services\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,8 @@ class SettingsController extends Controller
      */
     public function edit(Request $request): View
     {
+        $lastBeat = app(SchedulerHeartbeat::class)->lastBeat();
+
         return view('settings.edit', [
             'fields' => Settings::fields(),
             'settings' => $this->settings,
@@ -34,7 +37,8 @@ class SettingsController extends Controller
                 'App URL' => config('app.url'),
                 'Debug mode' => config('app.debug') ? 'On — should be off in production' : 'Off',
                 'Database' => config('database.default'),
-                'Queue driver' => config('queue.default').(config('queue.default') === 'sync' ? ' — pages are fetched during the save request' : ''),
+                'Queue driver' => config('queue.default').(config('queue.default') === 'sync' ? ' — pages are fetched during the save request' : (config('docket.queue.via_scheduler') ? ' — drained by the scheduler cron' : '')),
+                'Scheduler (cron)' => $lastBeat ? 'Last ran '.$lastBeat->diffForHumans() : 'Never ran — the cron line shown at the top of this page is missing',
                 'Filesystem disk' => config('filesystems.default'),
                 'Mail driver' => config('mail.default'),
                 'Fetch User-Agent' => config('docket.fetch.user_agent'),

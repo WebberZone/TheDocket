@@ -63,11 +63,12 @@ class InstallController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'timezone' => ['required', 'string', 'timezone'],
         ]);
 
         $validator->after(function ($validator) use ($request): void {
             if (is_string($request->input('setup_code')) && ! $this->installer->checkSetupCode($request->input('setup_code'))) {
-                $validator->errors()->add('setup_code', 'That setup code is not right. Copy it from the file named below.');
+                $validator->errors()->add('setup_code', 'That setup code is not right. Copy it from the file named above.');
             }
         });
 
@@ -109,6 +110,7 @@ class InstallController extends Controller
             // database above.
             $this->installer->writeEnvValues([
                 'APP_URL' => $data['url'],
+                'APP_TIMEZONE' => $data['timezone'],
                 'DOCKET_USER_NAME' => $data['name'],
                 'DOCKET_USER_EMAIL' => $data['email'],
             ]);
@@ -126,6 +128,7 @@ class InstallController extends Controller
             'url' => $data['url'],
             'email' => $data['email'],
             'assetsBuilt' => file_exists(public_path('build/manifest.json')),
+            'cronLine' => $this->installer->cronLine(),
         ]);
     }
 
@@ -139,6 +142,7 @@ class InstallController extends Controller
             'errors' => $errors,
             'installError' => $installError,
             'codeLocation' => $this->installer->setupCodeLocation(),
+            'timezones' => timezone_identifiers_list(),
         ], $status);
     }
 }

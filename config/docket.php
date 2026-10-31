@@ -41,6 +41,26 @@ return [
     ],
 
     /*
+    | How queued work runs. With via_scheduler on (the default), the one
+    | scheduler cron also runs queue:work --stop-when-empty every minute, so
+    | a stock install needs nothing but that single cron line. Set
+    | DOCKET_QUEUE_VIA_SCHEDULER=false when a dedicated queue:work service
+    | (systemd/supervisor) runs instead.
+    */
+    'queue' => [
+        'via_scheduler' => (bool) env('DOCKET_QUEUE_VIA_SCHEDULER', true),
+    ],
+
+    /*
+    | The scheduler heartbeat: schedule:run touches this file every minute
+    | and the dashboard warns when it goes stale. File-based deliberately —
+    | clearing caches must not trigger a false alarm.
+    */
+    'scheduler' => [
+        'heartbeat_path' => env('DOCKET_SCHEDULER_HEARTBEAT_PATH') ?: storage_path('app/scheduler-heartbeat'),
+    ],
+
+    /*
     | Fetching saved pages. Every request goes through App\Services\SafeHttpClient,
     | which refuses private, loopback and link-local addresses after DNS
     | resolution, follows redirects itself (re-checking each hop) and stops

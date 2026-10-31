@@ -11,6 +11,7 @@
 .phpactor.json
 .phpunit.result.cache
 /auth.json
+/build
 /database/*.sqlite
 /database/*.sqlite-journal
 /node_modules

@@ -53,6 +53,7 @@ class WebInstallerTest extends TestCase
             'email' => 'jane@example.com',
             'password' => 'super-secret-99',
             'password_confirmation' => 'super-secret-99',
+            'timezone' => 'Europe/London',
         ];
     }
 
@@ -91,7 +92,49 @@ class WebInstallerTest extends TestCase
         $this->assertStringContainsString('DOCKET_USER_NAME="Jane Doe"', $env);
         $this->assertStringContainsString('DOCKET_USER_EMAIL=jane@example.com', $env);
         $this->assertMatchesRegularExpression('/^APP_KEY="?base64:/m', $env);
+        $this->assertStringContainsString('APP_TIMEZONE=Europe/London', $env);
         $this->assertStringNotContainsString('super-secret-99', $env);
+    }
+
+    public function test_an_invalid_timezone_is_rejected(): void
+    {
+        $payload = $this->validPayload();
+        $payload['timezone'] = 'Mars/Olympus_Mons';
+
+        $this->post('/install/setup', $payload)
+            ->assertStatus(422)
+            ->assertSee('Set up Docket');
+
+        $this->assertSame(0, User::query()->count());
+        $this->assertFileDoesNotExist($this->envDir.'/.env');
+    }
+
+    public function test_a_missing_timezone_is_rejected(): void
+    {
+        $payload = $this->validPayload();
+        unset($payload['timezone']);
+
+        $this->post('/install/setup', $payload)->assertStatus(422);
+
+        $this->assertSame(0, User::query()->count());
+    }
+
+    public function test_the_setup_form_offers_a_timezone_select(): void
+    {
+        $this->get('/install/setup')
+            ->assertOk()
+            ->assertSee('name="timezone"', false)
+            ->assertSee('Europe/London')
+            ->assertSee('UTC');
+    }
+
+    public function test_the_completion_page_shows_the_cron_line(): void
+    {
+        $this->post('/install/setup', $this->validPayload())
+            ->assertOk()
+            ->assertSee('Docket is installed')
+            ->assertSee('artisan schedule:run')
+            ->assertSee(app(Installer::class)->cronLine());
     }
 
     public function test_invalid_email_re_renders_form_with_error(): void

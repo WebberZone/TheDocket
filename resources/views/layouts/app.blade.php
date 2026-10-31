@@ -142,8 +142,20 @@
             @endisset
 
             <main>
-                @if (session('status') || session('error'))
+                @php($schedulerHealthy = app(\App\Services\SchedulerHeartbeat::class)->isHealthy())
+                @if (! $schedulerHealthy || session('status') || session('error'))
                     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 space-y-4">
+                        @unless ($schedulerHealthy)
+                            <div class="p-4 rounded-md bg-amber-50 border border-amber-200">
+                                <p class="text-sm text-amber-800">
+                                    {{ __('Background tasks are not running: saved pages are not fetched and backups do not run. Add this one cron line on your server, as the user that runs PHP:') }}
+                                </p>
+                                <code class="mt-2 block rounded bg-amber-100 px-3 py-2 text-xs text-amber-900 break-all">{{ app(\App\Services\Installer::class)->cronLine() }}</code>
+                                <p class="mt-2 text-xs text-amber-700">
+                                    {{ __('The warning disappears within a minute of the cron first running.') }}
+                                </p>
+                            </div>
+                        @endunless
                         @if (session('status'))
                             <x-alert />
                         @endif

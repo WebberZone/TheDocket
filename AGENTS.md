@@ -24,7 +24,8 @@ CI (`.github/workflows/ci.yml`) runs Pint `--test`, PHPStan and the test suite o
 - **Saving**: every entry point (paste form, `GET /save` bookmarklet, `GET /share` PWA target, `POST /api/items` with a Sanctum token) goes through `App\Services\ItemSaver`. De-duplication is the unique `items.normalized_url` from `UrlNormaliser`. Pocket import uses `PocketImporter` instead.
 - **Fetching**: `App\Jobs\FetchItemContent` → `Fetching\SafeHttpClient` → `Extraction\ArticleExtractor` (readability.php) → `HtmlSanitiser` → `ImageLocaliser`/`ImageDownloads`.
 - **Settings**: defaults in `config/docket.php`; runtime overrides in the `settings` table via `App\Services\Settings` and the `settings()` helper. A new editable knob goes in `Settings::fields()`.
-- **Installer**: `App\Services\Installer`, shared by `docket:install` and `/install`. Install routes run without the `web` middleware group (no DB/session yet).
+- **Installer**: `App\Services\Installer`, shared by `docket:install` and `/install`. Install routes run without the `web` middleware group (no DB/session yet). `docket:setup-code` prints the web installer's code; `docket:check-requirements` prints the requirements table. `tools/` holds the server-side scripts: `install.sh` (fresh Ubuntu/Debian), `update.sh` (git-checkout updater), `build-release.sh` (release zip + `dist` payload).
+- **Scheduler-driven queue**: one cron line runs `schedule:run`, which beats the `SchedulerHeartbeat` file and — while `docket.queue.via_scheduler` is on (`DOCKET_QUEUE_VIA_SCHEDULER`, default true) — drains the queue with `queue:work --stop-when-empty`. The dashboard warns when the heartbeat goes stale.
 - **Offline**: `public/sw.js` syncs from `OfflineController` (`/offline/articles`).
 - **Search**: external-content FTS5 table `items_fts` kept in sync by triggers; always build MATCH strings with `Item::ftsQuery()`.
 
@@ -36,7 +37,8 @@ CI (`.github/workflows/ci.yml`) runs Pint `--test`, PHPStan and the test suite o
 - **Exactly one account.** No registration; installer and seeder refuse to create a second user.
 - **List queries use `withoutBodies()`**; batch with `lazyById`/`chunkById`, never offset-based `lazy()` over a set that changes as it is processed.
 - **Images**: only raster types sniffed by content are stored, on the private `local` disk under `items/{id}/`, served only via the authenticated image route. SVG stays remote.
-- **Queue**: `retry_after` (360s) must stay above `FetchItemContent::$timeout` (300s) and the worker `--timeout`.
+- **Queue**: `retry_after` (360s) must stay above `FetchItemContent::$timeout` (300s) and the worker `--timeout` (including the scheduled `queue:work --timeout=300`).
+- **The heartbeat lives in a file** (`storage/app/scheduler-heartbeat`), never the cache: clearing caches must not trigger the dead-cron warning.
 
 ## Tests
 
