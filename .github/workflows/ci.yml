@@ -2,10 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    tags:
+      - 'v*'
+      - '[0-9]*'
   pull_request:
   workflow_dispatch:
-  # Called by release.yml so nothing ships without passing.
   workflow_call:
 
 permissions:
