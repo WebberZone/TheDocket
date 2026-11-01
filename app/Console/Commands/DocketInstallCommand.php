@@ -154,15 +154,14 @@ class DocketInstallCommand extends Command
             }
 
             // Written once the account is in place, so a refused install
-            // leaves .env alone. The password is deliberately NOT written
-            // to .env: it is hashed straight into the database.
+            // leaves .env alone. Neither the name nor the password is
+            // written to .env: the owner's identity lives only in the
+            // database.
             $installer->writeEnvValues([
                 'APP_URL' => $url,
                 'APP_TIMEZONE' => $timezone,
-                'DOCKET_USER_NAME' => $name,
-                'DOCKET_USER_EMAIL' => $email,
             ]);
-            $this->components->task('.env updated (APP_URL, APP_TIMEZONE, owner name/email)', fn (): bool => true);
+            $this->components->task('.env updated (APP_URL, APP_TIMEZONE)', fn (): bool => true);
 
             $installer->markInstalled();
         } finally {

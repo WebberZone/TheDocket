@@ -16,11 +16,11 @@ return [
     */
 
     /*
-    | The single owner account. There is no registration flow: the installer
-    | (php artisan docket:install or /install) creates the account directly.
-    | DatabaseSeeder uses these only on an empty users table, and refuses to
-    | run without DOCKET_USER_PASSWORD: there is deliberately no default
-    | password. Once the user exists the database is the source of truth.
+    | Optional db:seed inputs for rebuilding an EMPTY database. The
+    | installer writes none of them to .env and the running app never
+    | reads them — the owner's identity lives only in the users table.
+    | DatabaseSeeder refuses to run without DOCKET_USER_PASSWORD: there
+    | is deliberately no default password.
     */
     'user' => [
         // ?: not the env() default param: a present-but-empty line in .env

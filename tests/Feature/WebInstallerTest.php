@@ -101,8 +101,10 @@ class WebInstallerTest extends TestCase
 
         $env = (string) file_get_contents($this->envDir.'/.env');
         $this->assertStringContainsString('APP_URL=https://docket.example.com', $env);
-        $this->assertStringContainsString('DOCKET_USER_NAME="Jane Doe"', $env);
-        $this->assertStringContainsString('DOCKET_USER_EMAIL=jane@example.com', $env);
+        // The owner's identity lives only in the database — no active
+        // DOCKET_USER_* key is written (commented .env.example lines are
+        // fine to carry through).
+        $this->assertDoesNotMatchRegularExpression('/^DOCKET_USER_/m', $env);
         $this->assertMatchesRegularExpression('/^APP_KEY="?base64:/m', $env);
         $this->assertStringContainsString('APP_TIMEZONE=Europe/London', $env);
         $this->assertStringNotContainsString('super-secret-99', $env);

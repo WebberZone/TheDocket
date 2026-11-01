@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SettingsRequest;
+use App\Notifications\BackupNotifiable;
 use App\Services\Installer;
 use App\Services\SchedulerHeartbeat;
 use App\Services\Settings;
@@ -51,7 +52,7 @@ class SettingsController extends Controller
                 'Off-site backups' => config('filesystems.disks.offsite.bucket')
                     ? config('filesystems.disks.offsite.bucket').' @ '.config('filesystems.disks.offsite.endpoint')
                     : 'Not configured',
-                'Backup failure notifications' => config('backup.notifications.mail.to'),
+                'Backup failure notifications' => app(BackupNotifiable::class)->email() ?? 'Not set',
             ],
         ]);
     }

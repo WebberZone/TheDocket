@@ -105,14 +105,12 @@ class InstallController extends Controller
             $this->installer->createOwner($data['name'], $data['email'], $data['password']);
 
             // Configuration changes only once the account exists, so a
-            // failed or refused install leaves .env as it was. The password
-            // is deliberately NOT written to .env: it is hashed into the
-            // database above.
+            // failed or refused install leaves .env as it was. Neither the
+            // name nor the password is written to .env: the owner's
+            // identity lives only in the database.
             $this->installer->writeEnvValues([
                 'APP_URL' => $data['url'],
                 'APP_TIMEZONE' => $data['timezone'],
-                'DOCKET_USER_NAME' => $data['name'],
-                'DOCKET_USER_EMAIL' => $data['email'],
             ]);
 
             $this->installer->markInstalled();

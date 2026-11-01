@@ -1,6 +1,6 @@
 <?php
 
-use Spatie\Backup\Notifications\Notifiable;
+use App\Notifications\BackupNotifiable;
 use Spatie\Backup\Notifications\Notifications\BackupHasFailedNotification;
 use Spatie\Backup\Notifications\Notifications\BackupWasSuccessfulNotification;
 use Spatie\Backup\Notifications\Notifications\CleanupHasFailedNotification;
@@ -235,12 +235,14 @@ return [
          * Here you can specify the notifiable to which the notifications should be sent. The default
          * notifiable will use the variables specified in this config file.
          */
-        'notifiable' => Notifiable::class,
+        'notifiable' => BackupNotifiable::class,
 
         'mail' => [
-            // Falls back to the owner account's email when no dedicated
-            // backup-notification address is configured.
-            'to' => env('BACKUP_NOTIFY_EMAIL') ?: (env('DOCKET_USER_EMAIL') ?: 'owner@example.com'),
+            // The package's config object demands a valid email here, so
+            // an unset BACKUP_NOTIFY_EMAIL gets this sentinel. The real
+            // routing lives in BackupNotifiable: a configured address,
+            // else the owner account's current email from the database.
+            'to' => env('BACKUP_NOTIFY_EMAIL') ?: BackupNotifiable::OWNER_FROM_DATABASE,
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
