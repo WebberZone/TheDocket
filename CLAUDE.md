@@ -40,6 +40,7 @@ CI (`.github/workflows/ci.yml`) runs Pint `--test`, PHPStan and the test suite o
 - **List queries use `withoutBodies()`**; batch with `lazyById`/`chunkById`, never offset-based `lazy()` over a set that changes as it is processed.
 - **Images**: only raster types sniffed by content are stored, on the private `local` disk under `items/{id}/`, served only via the authenticated image route. SVG stays remote.
 - **Queue**: `retry_after` (360s) must stay above `FetchItemContent::$timeout` (300s) and the worker `--timeout` (including the scheduled `queue:work --timeout=300`).
+- **Web cron lock**: `WebCronController::LOCK_SECONDS` (900s) must exceed the drain window plus `FetchItemContent::$timeout` plus a `schedule:run`, or a second ping starts a second worker mid-run.
 - **The heartbeat lives in a file** (`storage/app/scheduler-heartbeat`), never the cache: clearing caches must not trigger the dead-cron warning.
 
 ## Tests

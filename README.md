@@ -255,6 +255,12 @@ on hosts that disable `proc_open`/`exec`, the scheduler's own
 sub-processes can't run — the queue still drains (it runs inside the web
 request), but backups can fail there.
 
+Both the no-cron fetches and the cron URL do their work after the
+response, which needs PHP-FPM (Apache with `mod_php`, or other non-FPM
+setups, cannot close the connection early). Without FPM, Docket still
+works, but the browser — or the pinger — waits while the fetch or the
+cron run finishes, and a pinger with a short timeout may report failures.
+
 If off-site backups are configured and the scheduler stops running, a
 warning banner appears at the top of every page until it runs again;
 Settings → Background tasks always shows the current status.

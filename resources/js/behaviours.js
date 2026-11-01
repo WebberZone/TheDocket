@@ -44,15 +44,37 @@ export default function behaviours(root) {
         const copyButton = target?.closest('[data-copy-target]');
         if (copyButton instanceof HTMLElement) {
             const source = document.querySelector(copyButton.dataset.copyTarget);
-            const text = source instanceof HTMLInputElement || source instanceof HTMLTextAreaElement
-                ? source.value
-                : source?.textContent?.trim();
+            const isField = source instanceof HTMLInputElement || source instanceof HTMLTextAreaElement;
+            const text = isField ? source.value : source?.textContent?.trim();
             if (text) {
-                const label = copyButton.textContent;
-                navigator.clipboard?.writeText(text).then(() => {
-                    copyButton.textContent = 'Copied';
-                    setTimeout(() => { copyButton.textContent = label; }, 2000);
-                });
+                const label = copyButton.dataset.copyLabel ?? copyButton.textContent;
+                copyButton.dataset.copyLabel = label;
+                const show = (message) => {
+                    copyButton.textContent = message;
+                    setTimeout(() => { copyButton.textContent = label; }, 3000);
+                };
+                // The Clipboard API is missing over plain HTTP and can be
+                // refused; fall back to selecting the text for a manual copy.
+                const fallback = () => {
+                    if (isField) {
+                        source.focus();
+                        source.select();
+                    } else if (source) {
+                        window.getSelection()?.selectAllChildren(source);
+                    }
+                    let copied = false;
+                    try {
+                        copied = document.execCommand('copy');
+                    } catch {
+                        copied = false;
+                    }
+                    show(copied ? 'Copied' : (/Mac|iPhone|iPad/.test(navigator.userAgent) ? 'Press ⌘C' : 'Press Ctrl+C'));
+                };
+                if (navigator.clipboard?.writeText) {
+                    navigator.clipboard.writeText(text).then(() => show('Copied'), fallback);
+                } else {
+                    fallback();
+                }
             }
         }
     });

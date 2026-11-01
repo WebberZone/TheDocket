@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\FetchStatus;
+use App\Http\Controllers\WebCronController;
 use App\Jobs\FetchItemContent;
 use App\Models\Item;
 use App\Models\User;
 use App\Services\Installer;
 use App\Services\SchedulerHeartbeat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -104,6 +106,32 @@ class WebCronTest extends TestCase
         $this->get($this->cronUrl())->assertOk();
         clearstatcache();
         $this->assertGreaterThan($firstBeat - 10, filemtime($this->heartbeatDir.'/heartbeat'));
+    }
+
+    public function test_a_ping_during_an_active_run_skips_the_work(): void
+    {
+        app(Installer::class)->markInstalled();
+
+        $running = Cache::lock('docket:web-cron', WebCronController::LOCK_SECONDS);
+        $this->assertTrue($running->get());
+
+        try {
+            $this->get($this->cronUrl())->assertOk();
+            $this->assertFileDoesNotExist($this->heartbeatDir.'/heartbeat');
+        } finally {
+            $running->release();
+        }
+    }
+
+    public function test_the_lock_outlives_the_longest_run(): void
+    {
+        $fetchTimeout = (new FetchItemContent(Item::factory()->make()))->timeout;
+
+        // Drain window + one full fetch, with room left for schedule:run.
+        $this->assertGreaterThan(
+            WebCronController::MAX_DRAIN_SECONDS + $fetchTimeout + 300,
+            WebCronController::LOCK_SECONDS
+        );
     }
 
     public function test_regenerating_the_token_invalidates_the_old_url(): void

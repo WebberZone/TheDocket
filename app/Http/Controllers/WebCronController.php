@@ -26,6 +26,21 @@ use Illuminate\Support\Facades\Log;
  */
 class WebCronController extends Controller
 {
+    /**
+     * Seconds the queue drain may keep taking new jobs.
+     */
+    public const MAX_DRAIN_SECONDS = 50;
+
+    /**
+     * How long the overlap lock outlives a run that never releases it.
+     * --max-time is only checked between jobs, so a run can last the
+     * drain window plus one full fetch plus schedule:run (backups) —
+     * and max_execution_time doesn't bound that on Linux, where it
+     * ignores time spent waiting on the network. Too short a TTL lets
+     * a second ping start a second worker mid-run.
+     */
+    public const LOCK_SECONDS = 900;
+
     public function __invoke(string $token, Installer $installer): Response
     {
         if (! $this->isInstalled($installer) || ! hash_equals($installer->cronToken(), $token)) {
@@ -33,13 +48,13 @@ class WebCronController extends Controller
         }
 
         app()->terminating(function (): void {
-            $lock = Cache::lock('docket:web-cron', 300);
+            $lock = Cache::lock('docket:web-cron', self::LOCK_SECONDS);
 
             if (! $lock->get()) {
                 return;
             }
 
-            @set_time_limit(300);
+            @set_time_limit(self::LOCK_SECONDS);
             ignore_user_abort(true);
 
             try {
@@ -48,17 +63,19 @@ class WebCronController extends Controller
                 Artisan::call('queue:work', [
                     '--stop-when-empty' => true,
                     '--tries' => 3,
-                    '--max-time' => 50,
+                    '--max-time' => self::MAX_DRAIN_SECONDS,
                 ]);
 
+                // A fetch resets the time limit to its own; give the
+                // scheduler a fresh one.
+                @set_time_limit(self::LOCK_SECONDS);
                 Artisan::call('schedule:run');
             } catch (\Throwable $e) {
                 Log::warning('Web cron run failed: '.$e->getMessage());
             } finally {
-                // Release once the work is done — the lock's 300s TTL
-                // only guards a runaway run; holding it the whole time
-                // would make every ping for the next five minutes a
-                // no-op.
+                // Release once the work is done — the TTL only guards a
+                // run that died; holding it the whole time would make
+                // every ping for the next fifteen minutes a no-op.
                 $lock->release();
             }
         });

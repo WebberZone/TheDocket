@@ -36,23 +36,40 @@ document.querySelectorAll('[data-copy-target]').forEach(function (button) {
 
         var text = target.textContent.trim();
 
-        var done = function () {
-            button.textContent = 'Copied';
+        var show = function (message) {
+            button.textContent = message;
             setTimeout(function () {
                 button.textContent = 'Copy';
-            }, 2000);
+            }, 3000);
         };
 
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(done, done);
-        } else {
+        /* No Clipboard API over plain HTTP, and it can be refused: try the
+           legacy copy, else leave the text selected for a manual copy. */
+        var fallback = function () {
+            var copied = false;
             var area = document.createElement('textarea');
             area.value = text;
             document.body.appendChild(area);
             area.select();
-            document.execCommand('copy');
+            try {
+                copied = document.execCommand('copy');
+            } catch (e) {
+                copied = false;
+            }
             area.remove();
-            done();
+
+            if (!copied && window.getSelection) {
+                window.getSelection().selectAllChildren(target);
+            }
+            show(copied ? 'Copied' : (/Mac|iPhone|iPad/.test(navigator.userAgent) ? 'Press ⌘C' : 'Press Ctrl+C'));
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+                show('Copied');
+            }, fallback);
+        } else {
+            fallback();
         }
     });
 });
